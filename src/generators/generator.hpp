@@ -1,7 +1,8 @@
 #pragma once
-#include <filesystem>
+#include <string>
 
 class Generator {
 public:
-    virtual void add_file(std::filesystem::path path) = 0;
+    virtual void generate() = 0;
+    virtual std::string& code() = 0;
 };

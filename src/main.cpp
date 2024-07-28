@@ -7,6 +7,8 @@
 #include <iostream>
 #include <optional>
 
+#include "generators/ninja/ninja_gen.hpp"
+
 using namespace spdlog;
 
 const std::string CONFIG_NAME = "Qobs.toml";
@@ -47,9 +49,18 @@ void begin_build(std::filesystem::path path) {
         return;
     }
 
-    // create builder & build package
+    // create builder, this will scan the package sources, download required
+    // packages, etc. this will be passed to the generator, which will create
+    // the actual project files.
     Builder builder(config);
     builder.build();
+
+    // create a generator
+    NinjaGenerator generator(builder);
+    generator.generate();
+
+    // print the ninja code
+    info("generated project file:\n{}", generator.code());
 }
 
 int main(int argc, char* argv[]) {

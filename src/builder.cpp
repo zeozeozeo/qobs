@@ -5,21 +5,27 @@
 using namespace spdlog;
 
 void Builder::build() {
+    // find all package sources (this will glob `target.sources` wildcards)
     scan_files();
 }
 
 void Builder::scan_files() {
     debug("scanning files...");
-    for (auto& query : m_config.package().sources()) {
+    for (auto& query : m_config.target().sources()) {
         // since `qobs build` can be used with a path (e.g. `qobs build
         // package-dir`) we need to make the query relative to the path qobs is
         // being run from
         auto relative_query = m_config.package_path().string();
         relative_query.push_back(std::filesystem::path::preferred_separator);
         relative_query.append(query);
-        trace("relative query: {}", relative_query);
 
-        for (auto& p : glob::rglob(relative_query)) {
+        // recursively glob the query
+        trace("globbing relative query: {}", relative_query);
+        auto files = m_config.target().glob_recurse()
+                         ? glob::rglob(relative_query)
+                         : glob::glob(relative_query);
+
+        for (auto& p : files) {
             trace("found source file: {}", p.string());
         }
     }

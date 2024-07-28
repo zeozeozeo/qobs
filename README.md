@@ -35,6 +35,8 @@ Let's look inside the `Qobs.toml` file that Qobs has made for us:
 name = "my-first-qobs-project"
 description = "This is where I make a project."
 authors = ["AzureDiamond"]
+
+[target]
 sources = ["src/*.cpp", "src/*.cc", "src/*.c"]
 
 [dependencies]
@@ -52,9 +54,13 @@ General package info, such as name, description, authors and source location.
 
 `package.authors` (array of strings): package authors (optional)
 
-`package.sources` (array of strings): list of globs for package source files. This is optional and defaults to `["src/*.cpp", "src/*.cc", "src/*.c"]`
+### `[target]`
 
-#### `package.sources` wildcard format
+`target.glob_recurse` (bool): whether to use `rglob` instead of `glob` for `target.sources`. This is optional and defaults to true.  
+
+`target.sources` (array of strings): list of globs for package source files. This is optional and defaults to `["src/*.cpp", "src/*.cc", "src/*.c"]`
+
+#### `target.sources` wildcard format
 
 Qobs uses [p-ranav/glob](https://github.com/p-ranav/glob) for globbing files, which supports the following wildcards:
 

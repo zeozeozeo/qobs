@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <toml++/toml.hpp>
 
+// [package]
 class Package {
 public:
     Package(){};
@@ -16,9 +17,6 @@ public:
     const std::vector<std::string>& authors() const {
         return m_authors;
     }
-    const std::vector<std::string>& sources() const {
-        return m_sources;
-    }
 
 private:
     // Package name. Field: `name`
@@ -29,9 +27,24 @@ private:
 
     // Package authors. Field: `authors`
     std::vector<std::string> m_authors{};
+};
 
+// [target]
+class Target {
+public:
+    Target(){};
+    void parse(toml::node_view<toml::node> target);
+    const std::vector<std::string>& sources() const {
+        return m_sources;
+    }
+    bool glob_recurse() const {
+        return m_glob_recurse;
+    }
+
+private:
     std::vector<std::string> m_sources{
         std::vector<std::string>{"src/*.cpp", "src/*.cc", "src/*.c"}};
+    bool m_glob_recurse{true};
 };
 
 class Config {
@@ -44,6 +57,9 @@ public:
     const Package& package() const {
         return m_package;
     }
+    const Target& target() const {
+        return m_target;
+    }
 
 private:
     // Path where the config is located.
@@ -54,4 +70,7 @@ private:
 
     // [package]
     Package m_package;
+
+    // [target]
+    Target m_target;
 };

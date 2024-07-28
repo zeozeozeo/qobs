@@ -1,6 +1,5 @@
 #pragma once
 #include "config.hpp"
-#include <filesystem>
 
 class BuildFile {
 public:
@@ -13,11 +12,10 @@ private:
 class Builder {
 public:
     Builder(Config config) : m_config(config) {}
-    
+
     void build();
 
 private:
     void scan_files();
-
     Config m_config;
 };
