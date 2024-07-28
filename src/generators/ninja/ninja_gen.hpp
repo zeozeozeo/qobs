@@ -2,8 +2,6 @@
 #include "../../builder.hpp"
 #include "../generator.hpp"
 
-const std::string DEFAULT_CODE = "";
-
 class NinjaGenerator : public Generator {
 public:
     NinjaGenerator(Builder builder) : m_builder(builder){};
@@ -13,6 +11,9 @@ public:
     };
 
 private:
+    void write(std::string code);
+    void writeln(std::string code);
+
     Builder m_builder;
-    std::string m_code{DEFAULT_CODE};
+    std::string m_code;
 };

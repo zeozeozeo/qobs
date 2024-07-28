@@ -63,10 +63,56 @@ void begin_build(std::filesystem::path path) {
     info("generated project file:\n{}", generator.code());
 }
 
+void new_package(std::string name) {
+    while (name.empty()) {
+        fmt::print("Package name: ");
+        std::getline(std::cin, name);
+        if (name.empty()) {
+            error("package name cannot be empty");
+        }
+    }
+
+    auto path = std::filesystem::current_path() / name;
+    if (std::filesystem::exists(path)) {
+        error("couldn't create package `{}`: directory `{}` already exists",
+              name, path.string());
+        return;
+    }
+
+    // create package directory
+    try {
+        std::filesystem::create_directory(path);
+    } catch (const std::exception& err) {
+        error("couldn't create directory `{}`: {}", path.string(), err.what());
+        return;
+    }
+
+    // create Qobs.toml
+    Config config{path};
+    config.m_package.m_name = name;
+    auto config_path = path / CONFIG_NAME;
+    try {
+        config.save_to(config_path);
+    } catch (const std::exception& err) {
+        error("couldn't create `{}`: {}", config_path.string(), err.what());
+        return;
+    }
+
+    info("created package `{}`", name);
+}
+
 int main(int argc, char* argv[]) {
     set_pattern("%^%l%$: %v");
     set_level(level::trace);
     argparse::ArgumentParser program("qobs");
+
+    // qobs new
+    argparse::ArgumentParser new_command("new");
+    new_command.add_description("Create a new package");
+    new_command.add_argument("name").implicit_value("").help(
+        "Name of the package");
+
+    program.add_subparser(new_command);
 
     // qobs build
     argparse::ArgumentParser build_command("build");
@@ -78,6 +124,7 @@ int main(int argc, char* argv[]) {
 
     // add subparsers
     program.add_subparser(build_command); // qobs build
+    program.add_subparser(new_command);   // qobs new
 
     try {
         program.parse_args(argc, argv);
@@ -92,10 +139,17 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    // handle "qobs build"
+    // handle subcommands
     if (program.is_subcommand_used("build")) {
         auto path = build_command.get<std::string>("path");
         begin_build(path);
+        return 0;
+    } else if (program.is_subcommand_used("new")) {
+        std::string name;
+        if (new_command.is_used("name")) {
+            name = new_command.get<std::string>("name");
+        }
+        new_package(name);
         return 0;
     }
 

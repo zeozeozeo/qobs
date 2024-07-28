@@ -27,6 +27,9 @@ void Builder::scan_files() {
 
         for (auto& p : files) {
             trace("found source file: {}", p.string());
+            BuildFile file(p);
+            m_files.push_back(file);
         }
     }
+    debug("queued {} file(s) for building", m_files.size());
 }

@@ -72,6 +72,8 @@ Qobs uses [p-ranav/glob](https://github.com/p-ranav/glob) for globbing files, wh
 | `[-]`    | any character in the range listed in brackets | `[A-Z]*` matches files starting with capital letters    |
 | `[!]`    | any character not listed in the brackets      | `[!ABC]*` matches files that do not start with A,B or C |
 
+`target.cflags` (string): Compilation flags. This is optional and defaults to an empty string
+
 # Generators
 
 Qobs does not build your code by itself, it instead generates project files for other build systems such as [Ninja](https://ninja-build.org/).

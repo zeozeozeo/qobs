@@ -18,8 +18,10 @@ bool warn_if_not_string_and_return_true(std::string_view name, size_t i,
 
 void Package::parse(toml::node_view<toml::node> package) {
     if (!package["name"].is_string()) {
-        throw std::runtime_error("`package.name` is required, either define it "
-                                 "in Qobs.toml or re-run `qobs new`");
+        throw std::runtime_error(
+            "`package.name` is required, either define it "
+            "in Qobs.toml or re-run `qobs new`:\n[package]\nname = "
+            "\"my-package-name\" # this is required");
     }
     m_name = package["name"].as_string()->get();
     m_description = package["description"].value_or("");
@@ -43,6 +45,7 @@ void Target::parse(toml::node_view<toml::node> target) {
         });
     }
     m_glob_recurse = target["glob_recurse"].value_or(false);
+    m_cflags = target["cflags"].value_or("");
 }
 
 void Config::parse_file(std::string_view config_path) {
@@ -56,4 +59,39 @@ void Config::parse_file(std::string_view config_path) {
           sw, m_package.name(), m_package.description(),
           fmt::join(m_package.authors(), ", "),
           fmt::join(m_target.sources(), ", "), m_package_path.string());
+}
+
+template <typename T> toml::array vector_to_array(const std::vector<T>& vec) {
+    toml::array arr;
+    for (auto& v : vec) {
+        arr.push_back(v);
+    }
+    return arr;
+}
+
+void Config::save_to(std::filesystem::path path) {
+    // obviously we could use the toml++ serializer all of this, but
+    // it uses std::map under the hood, which stores keys lexicographically,
+    // e.g. package.author comes before package.name in the saved file, which
+    // doesn't look that good, so we only use it for serializing invididual keys
+
+    std::ofstream file(path, std::ios::out | std::ios::trunc);
+
+    // [package]
+    file << "[package]\n";
+    file << toml::table{{"name", m_package.name()}} << "\n";
+    file << toml::table{{"description", m_package.description()}} << "\n";
+    file << "authors = " << vector_to_array(m_package.authors()) << "\n";
+
+    // [target]
+    file << "\n[target]\n";
+    file << "sources = " << vector_to_array(m_target.sources()) << "\n";
+    if (!m_target.glob_recurse()) {
+        file << toml::table{{"glob_recurse", m_target.glob_recurse()}} << "\n";
+    }
+    if (!m_target.cflags().empty()) {
+        file << toml::table{{"cflags", m_target.cflags()}} << "\n";
+    }
+
+    file.close();
 }
