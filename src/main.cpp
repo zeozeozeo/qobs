@@ -45,6 +45,10 @@ find_qobs_toml(std::filesystem::path initial_path) {
 }
 
 void begin_build(std::filesystem::path path) {
+    if (!path.is_absolute()) {
+        trace("path `{}` is relative, promoting to absolute", path.string());
+        path = std::filesystem::absolute(path);
+    }
     debug("building package: {}", path.string());
 
     // find Qobs.toml
@@ -66,8 +70,7 @@ void begin_build(std::filesystem::path path) {
     }
 
     // create builder, this will scan the package sources, download required
-    // packages, etc. this will be passed to the generator, which will create
-    // the actual project files.
+    // packages, and generate the project
     Builder builder(config);
     try {
         builder.build();
@@ -81,6 +84,11 @@ void begin_build(std::filesystem::path path) {
     generator.generate();
 
     // print the ninja code
+    auto ninja_path = builder.config().package_path() / "build" / "build.ninja";
+    std::fstream file(ninja_path, std::ios::out);
+    file << generator.code();
+    file.close();
+
     info("generated project file:\n{}", generator.code());
 }
 
@@ -207,7 +215,12 @@ int main(int argc, char* argv[]) {
     // handle subcommands
     if (program.is_subcommand_used("build")) {
         auto path = build_command.get<std::string>("path");
-        begin_build(path);
+        try {
+            begin_build(path);
+        } catch (const std::exception& err) {
+            error("failed to begin build: {}", err.what());
+            return 1;
+        }
         return 0;
     } else if (program.is_subcommand_used("new")) {
         std::string name;

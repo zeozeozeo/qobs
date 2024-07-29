@@ -106,8 +106,12 @@ void Config::save_to(std::filesystem::path path) {
     // [package]
     file << "[package]\n";
     file << fmt_field("name", m_package.name()) << "\n";
-    file << fmt_field("description", m_package.description()) << "\n";
-    file << "authors = " << fmt_vector(m_package.authors()) << "\n";
+    if (!m_package.description().empty()) {
+        file << fmt_field("description", m_package.description()) << "\n";
+    }
+    if (!m_package.authors().empty()) {
+        file << "authors = " << fmt_vector(m_package.authors()) << "\n";
+    }
 
     // [target]
     file << "\n[target]\n";
