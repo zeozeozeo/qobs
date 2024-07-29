@@ -4,7 +4,7 @@
 
 using namespace spdlog;
 
-void Builder::build() {
+void Builder::build(std::shared_ptr<Generator> gen) {
     // create build directory
     try {
         std::filesystem::create_directory(m_config.package_path() / "build");
@@ -15,6 +15,17 @@ void Builder::build() {
 
     // find all package sources (this will glob `target.sources` wildcards)
     scan_files();
+
+    // generate project files
+    debug("generating project files...");
+    gen->generate(m_config, m_files);
+    info("build.ninja:\n{}", gen->code());
+
+    // write project files
+    auto build_file_path = m_config.package_path() / "build" / "build.ninja";
+    std::fstream file(build_file_path, std::ios::out);
+    file << gen->code();
+    file.close();
 }
 
 void Builder::scan_files() {

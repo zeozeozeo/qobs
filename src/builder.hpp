@@ -1,24 +1,12 @@
 #pragma once
 #include "config.hpp"
-
-class BuildFile {
-public:
-    BuildFile(std::filesystem::path path) : m_path(path){};
-
-    const std::filesystem::path& path() const {
-        return m_path;
-    }
-
-private:
-    // Path to source file.
-    std::filesystem::path m_path;
-};
+#include "generators/generator.hpp"
 
 class Builder {
 public:
     Builder(Config config) : m_config(config) {}
 
-    void build();
+    void build(std::shared_ptr<Generator> gen);
     Config& config() {
         return m_config;
     }

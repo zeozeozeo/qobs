@@ -69,27 +69,25 @@ void begin_build(std::filesystem::path path) {
         return;
     }
 
+    // create a generator
+    std::shared_ptr<Generator> gen = std::make_shared<NinjaGenerator>();
+
     // create builder, this will scan the package sources, download required
     // packages, and generate the project
     Builder builder(config);
     try {
-        builder.build();
+        builder.build(gen);
     } catch (const std::exception& err) {
         error("failed to build package: {}", err.what());
         return;
     }
 
-    // create a generator
-    NinjaGenerator generator(builder);
-    generator.generate();
-
     // print the ninja code
-    auto ninja_path = builder.config().package_path() / "build" / "build.ninja";
-    std::fstream file(ninja_path, std::ios::out);
-    file << generator.code();
-    file.close();
-
-    info("generated project file:\n{}", generator.code());
+    // auto ninja_path = builder.config().package_path() / "build" /
+    // "build.ninja"; std::fstream file(ninja_path, std::ios::out); file <<
+    // generator.code(); file.close();
+    //
+    // info("generated project file:\n{}", generator.code());
 }
 
 void new_package(std::string name) {
