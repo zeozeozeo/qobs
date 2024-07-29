@@ -35,6 +35,10 @@ void Package::parse(toml::node_view<toml::node> package) {
     }
 }
 
+void Package::add_author(std::string author) {
+    m_authors.push_back(author);
+}
+
 void Target::parse(toml::node_view<toml::node> target) {
     if (target["sources"].is_array()) {
         m_sources.clear();

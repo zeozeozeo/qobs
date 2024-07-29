@@ -1,6 +1,7 @@
 #include "builder.hpp"
 #include "config.hpp"
 #include "spdlog/spdlog.h"
+#include "utils.hpp"
 #include <argparse/argparse.hpp>
 #include <filesystem>
 #include <fmt/core.h>
@@ -12,6 +13,21 @@
 using namespace spdlog;
 
 const std::string CONFIG_NAME = "Qobs.toml";
+const std::string DEFAULT_C = R"(#include <stdio.h>
+
+int main(void) {
+    printf("Hello, World!");
+    return 0;
+}
+)";
+
+const std::string DEFAULT_CPP = R"(#include <iostream>
+
+int main() {
+    std::cout << "Hello, World!\n";
+    return 0;
+}
+)";
 
 // Try to find Qobs.toml in current directory or in parent directories
 std::optional<std::filesystem::path>
@@ -53,7 +69,12 @@ void begin_build(std::filesystem::path path) {
     // packages, etc. this will be passed to the generator, which will create
     // the actual project files.
     Builder builder(config);
-    builder.build();
+    try {
+        builder.build();
+    } catch (const std::exception& err) {
+        error("failed to build package: {}", err.what());
+        return;
+    }
 
     // create a generator
     NinjaGenerator generator(builder);
@@ -67,6 +88,7 @@ void new_package(std::string name) {
     while (name.empty()) {
         fmt::print("Package name: ");
         std::getline(std::cin, name);
+        utils::trim_in_place(name);
         if (name.empty()) {
             error("package name cannot be empty");
         }
@@ -79,17 +101,44 @@ void new_package(std::string name) {
         return;
     }
 
-    // create package directory
-    try {
-        std::filesystem::create_directory(path);
-    } catch (const std::exception& err) {
-        error("couldn't create directory `{}`: {}", path.string(), err.what());
-        return;
-    }
-
     // create Qobs.toml
     Config config{path};
     config.m_package.m_name = name;
+
+    // description
+    fmt::print("Description (optional): ");
+    std::getline(std::cin, config.m_package.m_description);
+    utils::trim_in_place(config.m_package.m_description);
+
+    // authors
+    fmt::print("Author (optional): ");
+    std::string author;
+    std::getline(std::cin, author);
+    utils::trim_in_place(author);
+    if (!author.empty()) {
+        config.m_package.add_author(author);
+    }
+
+    // use C++ (y/n)?
+    fmt::print("Use C++ (y/n)? ");
+    std::string use_cpp;
+    std::getline(std::cin, use_cpp);
+    utils::trim_in_place(use_cpp);
+    bool cxx =
+        use_cpp == "y" || use_cpp == "Y" || use_cpp == "1" || use_cpp.empty();
+
+    // scaffold package directory
+    auto scaffold_path = path;
+    try {
+        std::filesystem::create_directory(scaffold_path);
+        scaffold_path /= "src";
+        std::filesystem::create_directory(scaffold_path);
+    } catch (const std::exception& err) {
+        error("couldn't create directory `{}`: {}", scaffold_path.string(),
+              err.what());
+        return;
+    }
+
     auto config_path = path / CONFIG_NAME;
     try {
         config.save_to(config_path);
@@ -98,7 +147,23 @@ void new_package(std::string name) {
         return;
     }
 
-    info("created package `{}`", name);
+    // create src/main.c or src/main.cpp
+    scaffold_path /= (cxx ? "main.cpp" : "main.c");
+    try {
+        std::ofstream file(scaffold_path, std::ios::out | std::ios::trunc);
+        if (cxx) {
+            file << DEFAULT_CPP;
+        } else {
+            file << DEFAULT_C;
+        }
+        file.close();
+    } catch (const std::exception& err) {
+        error("couldn't create `{}`: {}", scaffold_path.string(), err.what());
+        return;
+    }
+
+    info("created {} package `{}` in `{}`", cxx ? "C++" : "C", name,
+         path.string());
 }
 
 int main(int argc, char* argv[]) {

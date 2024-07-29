@@ -17,14 +17,15 @@ public:
     const std::vector<std::string>& authors() const {
         return m_authors;
     }
+    void add_author(std::string author);
 
     // Package name. Field: `name`
     std::string m_name{};
 
-private:
     // Package description. Field: `description`
     std::string m_description{};
 
+private:
     // Package authors. Field: `authors`
     std::vector<std::string> m_authors{};
 };

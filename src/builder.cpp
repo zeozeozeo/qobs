@@ -5,6 +5,14 @@
 using namespace spdlog;
 
 void Builder::build() {
+    // create build directory
+    try {
+        std::filesystem::create_directory(m_config.package_path() / "build");
+    } catch (const std::exception& err) {
+        throw std::runtime_error(
+            fmt::format("couldn't create build directory: {}", err.what()));
+    }
+
     // find all package sources (this will glob `target.sources` wildcards)
     scan_files();
 }

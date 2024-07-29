@@ -10,6 +10,7 @@ public:
     }
 
 private:
+    // Path to source file.
     std::filesystem::path m_path;
 };
 
