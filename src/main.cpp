@@ -12,8 +12,8 @@
 
 using namespace spdlog;
 
-const std::string CONFIG_NAME = "Qobs.toml";
-const std::string DEFAULT_C = R"(#include <stdio.h>
+constexpr auto& CONFIG_NAME = "Qobs.toml";
+constexpr auto& DEFAULT_C = R"(#include <stdio.h>
 
 int main(void) {
     printf("Hello, World!");
@@ -21,7 +21,7 @@ int main(void) {
 }
 )";
 
-const std::string DEFAULT_CPP = R"(#include <iostream>
+constexpr auto& DEFAULT_CPP = R"(#include <iostream>
 
 int main() {
     std::cout << "Hello, World!\n";

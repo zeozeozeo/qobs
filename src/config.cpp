@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "utils.hpp"
 #include <spdlog/spdlog.h>
 #include <spdlog/stopwatch.h>
 
@@ -65,12 +66,33 @@ void Config::parse_file(std::string_view config_path) {
           fmt::join(m_target.sources(), ", "), m_package_path.string());
 }
 
-template <typename T> toml::array vector_to_array(const std::vector<T>& vec) {
+template <typename T> std::string fmt_vector(const std::vector<T>& vec) {
     toml::array arr;
     for (auto& v : vec) {
         arr.push_back(v);
     }
-    return arr;
+
+    std::stringstream ss;
+    ss << arr;
+    auto str = ss.str();
+
+    // reformat ugly arrays:
+    // `[ 1, 2 ]` => `[1, 2]`
+    utils::replace_in_place(str, "[ ", "[");
+    utils::replace_in_place(str, " ]", "]");
+    return str;
+}
+
+template <typename T> std::string fmt_field(std::string_view name, T&& value) {
+    std::stringstream ss;
+    ss << toml::table{{name, std::forward<T>(value)}};
+    auto str = ss.str();
+
+    // reformat ugly arrays:
+    // `value = [ 1, 2 ]` => `value = [1, 2]`
+    utils::replace_in_place(str, "[ ", "[");
+    utils::replace_in_place(str, " ]", "]");
+    return str;
 }
 
 void Config::save_to(std::filesystem::path path) {
@@ -83,18 +105,18 @@ void Config::save_to(std::filesystem::path path) {
 
     // [package]
     file << "[package]\n";
-    file << toml::table{{"name", m_package.name()}} << "\n";
-    file << toml::table{{"description", m_package.description()}} << "\n";
-    file << "authors = " << vector_to_array(m_package.authors()) << "\n";
+    file << fmt_field("name", m_package.name()) << "\n";
+    file << fmt_field("description", m_package.description()) << "\n";
+    file << "authors = " << fmt_vector(m_package.authors()) << "\n";
 
     // [target]
     file << "\n[target]\n";
-    file << "sources = " << vector_to_array(m_target.sources()) << "\n";
+    file << "sources = " << fmt_vector(m_target.sources()) << "\n";
     if (!m_target.glob_recurse()) {
-        file << toml::table{{"glob_recurse", m_target.glob_recurse()}} << "\n";
+        file << fmt_field("glob_recurse", m_target.glob_recurse()) << "\n";
     }
     if (!m_target.cflags().empty()) {
-        file << toml::table{{"cflags", m_target.cflags()}} << "\n";
+        file << fmt_field("cflags", m_target.cflags()) << "\n";
     }
 
     file.close();
