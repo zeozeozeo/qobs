@@ -1,4 +1,5 @@
 #include "builder.hpp"
+#include "utils.hpp"
 #include <glob/glob.h>
 #include <spdlog/spdlog.h>
 
@@ -18,7 +19,15 @@ void Builder::build(std::shared_ptr<Generator> gen) {
 
     // generate project files
     debug("generating project files...");
-    gen->generate(m_config, m_files);
+
+    // determine exe name (FIXME: cross-compilation?)
+#ifdef QOBS_IS_WINDOWS
+    auto exe_name = m_config.package().name() + ".exe";
+#else
+    auto exe_name = m_config.package().name();
+#endif
+
+    gen->generate(m_config, m_files, exe_name);
     info("build.ninja:\n{}", gen->code());
 
     // write project files
@@ -26,6 +35,9 @@ void Builder::build(std::shared_ptr<Generator> gen) {
     std::fstream file(build_file_path, std::ios::out);
     file << gen->code();
     file.close();
+
+    // invoke generator
+    gen->invoke(build_file_path);
 }
 
 void Builder::scan_files() {

@@ -18,6 +18,7 @@ public:
         return m_authors;
     }
     void add_author(std::string author);
+    std::string executable_name();
 
     // Package name. Field: `name`
     std::string m_name{};

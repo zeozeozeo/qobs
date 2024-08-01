@@ -14,6 +14,7 @@ CPMAddPackage("gh:fmtlib/fmt#ffdc3fdbd90385429dd2ea6a774848e39d4f957a")
 CPMAddPackage("gh:marzer/tomlplusplus#e2bae9d559b4956a831fcef10ac8f01c88cb0d13")
 CPMAddPackage("gh:gabime/spdlog#5ebfc927306fd7ce551fa22244be801cf2b9fdd9")
 CPMAddPackage("gh:p-ranav/glob#d025092c0e1eb1a8b226d3a799fd32680d2fd13f")
+target_include_directories(${PROJECT_NAME} PRIVATE thirdparty)
 
 # link dependencies
 target_link_libraries(${PROJECT_NAME}

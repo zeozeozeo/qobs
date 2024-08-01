@@ -20,6 +20,10 @@ public:
     virtual ~Generator() = default;
 
     virtual void generate(const Config& config,
-                          const std::vector<BuildFile>& files) = 0;
+                          const std::vector<BuildFile>& files,
+                          std::string_view exe_name) = 0;
+    virtual void invoke(std::filesystem::path path){
+        // nop
+    };
     virtual std::string& code() = 0;
 };

@@ -81,13 +81,6 @@ void begin_build(std::filesystem::path path) {
         error("failed to build package: {}", err.what());
         return;
     }
-
-    // print the ninja code
-    // auto ninja_path = builder.config().package_path() / "build" /
-    // "build.ninja"; std::fstream file(ninja_path, std::ios::out); file <<
-    // generator.code(); file.close();
-    //
-    // info("generated project file:\n{}", generator.code());
 }
 
 void new_package(std::string name) {
@@ -192,6 +185,9 @@ int main(int argc, char* argv[]) {
         .help("Path to the package to build")
         .default_value(std::filesystem::current_path().string())
         .nargs(argparse::nargs_pattern::optional);
+    build_command.add_argument("-b", "--build-dir")
+        .default_value("build")
+        .help("Build directory");
 
     // add subparsers
     program.add_subparser(build_command); // qobs build
@@ -213,6 +209,12 @@ int main(int argc, char* argv[]) {
     // handle subcommands
     if (program.is_subcommand_used("build")) {
         auto path = build_command.get<std::string>("path");
+        auto builddir = build_command.get<std::string>("--build-dir");
+        if (!utils::is_directory_valid(builddir)) {
+            warn("invalid build directory `{}`", builddir);
+            builddir = "build";
+        }
+
         try {
             begin_build(path);
         } catch (const std::exception& err) {
