@@ -31,14 +31,19 @@ void NinjaGenerator::generate(const Config& config,
     // write variables
     write("cflags = ");
     writeln(config.target().cflags());
+    write("ldflags = ");
+    writeln(config.target().ldflags());
+    writeln("cc = clang");
 
+    // write rules
+    writeln("\n# rules");
     writeln("rule cc");
     // writeln("  deps = gcc");
-    writeln("  command = clang $cflags -c $in -o $out");
+    writeln("  command = $cc $cflags -c $in -o $out");
     writeln("  description = CC $out");
 
     writeln("rule link");
-    writeln("  command = clang -fuse-ld=lld-link $in -o $TARGET_FILE");
+    writeln("  command = $cc $ldflags -o $out $in");
     writeln("  description = LINK $out");
 
     // obj_dir will be the directory where build files where go, e.g.
@@ -53,20 +58,24 @@ void NinjaGenerator::generate(const Config& config,
                ".obj";
     };
 
-    // cc
+    // compile
     writeln("\n# compile source files");
     for (auto& file : files) {
         writeln(fmt::format("build {}: cc {}", get_obj_path(file.path()),
                             escape_path(file.path())));
     }
 
+    // link
     writeln(fmt::format("\n# link the executable `{}`", exe_name));
     write(fmt::format("build {}: link", exe_name));
     for (auto& file : files) {
         write(" ");
         write(get_obj_path(file.path()));
     }
-    writeln(fmt::format("\n  TARGET_FILE = {}", exe_name));
+
+    // set variables for link
+    writeln();
+    // writeln(fmt::format("  TARGET_FILE = {}", exe_name));
 }
 
 void NinjaGenerator::invoke(std::filesystem::path path) {
@@ -78,6 +87,7 @@ void NinjaGenerator::invoke(std::filesystem::path path) {
     //    error("ninja failed with code {}", res);
     //}
     auto cwd = path.parent_path();
+    trace("invoking ninja in `{}`", cwd.string());
     system(fmt::format("ninja -C \"{}\" -f \"{}\"", cwd.string(), path.string())
                .c_str());
 }

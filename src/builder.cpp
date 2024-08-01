@@ -28,7 +28,7 @@ void Builder::build(std::shared_ptr<Generator> gen) {
 #endif
 
     gen->generate(m_config, m_files, exe_name);
-    info("build.ninja:\n{}", gen->code());
+    trace("build.ninja:\n{}", gen->code());
 
     // write project files
     auto build_file_path = m_config.package_path() / "build" / "build.ninja";

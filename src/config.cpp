@@ -51,6 +51,7 @@ void Target::parse(toml::node_view<toml::node> target) {
     }
     m_glob_recurse = target["glob_recurse"].value_or(false);
     m_cflags = target["cflags"].value_or("");
+    m_ldflags = target["ldflags"].value_or("");
 }
 
 void Config::parse_file(std::string_view config_path) {
@@ -115,12 +116,15 @@ void Config::save_to(std::filesystem::path path) {
 
     // [target]
     file << "\n[target]\n";
-    file << "sources = " << fmt_vector(m_target.sources()) << "\n";
     if (!m_target.glob_recurse()) {
         file << fmt_field("glob_recurse", m_target.glob_recurse()) << "\n";
     }
+    file << "sources = " << fmt_vector(m_target.sources()) << "\n";
     if (!m_target.cflags().empty()) {
         file << fmt_field("cflags", m_target.cflags()) << "\n";
+    }
+    if (!m_target.ldflags().empty()) {
+        file << fmt_field("ldflags", m_target.ldflags()) << "\n";
     }
 
     file.close();
