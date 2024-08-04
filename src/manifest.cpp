@@ -1,4 +1,4 @@
-#include "config.hpp"
+#include "manifest.hpp"
 #include "utils.hpp"
 #include <spdlog/spdlog.h>
 #include <spdlog/stopwatch.h>
@@ -91,9 +91,9 @@ void Dependencies::parse(toml::table deps,
     }
 }
 
-void Config::parse_file(std::string_view config_path) {
+void Config::parse_file(std::string_view manifest_path) {
     stopwatch sw;
-    m_tbl = toml::parse_file(config_path);
+    m_tbl = toml::parse_file(manifest_path);
     m_package.parse(m_tbl["package"]);
     m_target.parse(m_tbl["target"]);
 
@@ -104,7 +104,7 @@ void Config::parse_file(std::string_view config_path) {
         warn("`dependencies` is of type `{}`, expected `table`",
              utils::toml_type_to_str(deps.type()));
 
-    debug("config parsed in {}s. package name: `{}`, description: `{}`, "
+    debug("manifest parsed in {}s. package name: `{}`, description: `{}`, "
           "authors: [{}], sources: [{}] (package path: `{}`)",
           sw, m_package.name(), m_package.description(),
           fmt::join(m_package.authors(), ", "),

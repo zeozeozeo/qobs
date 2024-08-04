@@ -1,17 +1,17 @@
 #pragma once
-#include "config.hpp"
+#include "manifest.hpp"
 #include "generators/generator.hpp"
 
 class Builder {
 public:
-    Builder(Config config) : m_config(config) {}
+    Builder(Manifest manifest) : m_manifest(manifest) {}
 
     // returns path to the built executable/library
     std::filesystem::path build(std::shared_ptr<Generator> gen,
                                 std::string_view build_dir,
                                 std::optional<std::string> compiler);
-    Config& config() {
-        return m_config;
+    Manifest& manifest() {
+        return m_manifest;
     }
     const std::vector<BuildFile>& files() const {
         return m_files;
@@ -19,6 +19,6 @@ public:
 
 private:
     void scan_files();
-    Config m_config;
+    Manifest m_manifest;
     std::vector<BuildFile> m_files;
 };

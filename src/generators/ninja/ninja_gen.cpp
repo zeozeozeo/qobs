@@ -22,7 +22,7 @@ inline std::string escape_path(std::filesystem::path path) {
     return str;
 }
 
-void NinjaGenerator::generate(const Config& config,
+void NinjaGenerator::generate(const Manifest& manifest,
                               const std::vector<BuildFile>& files,
                               std::string_view exe_name,
                               std::string_view compiler) {
@@ -31,9 +31,9 @@ void NinjaGenerator::generate(const Config& config,
 
     // write variables
     write("cflags = ");
-    writeln(config.target().cflags());
+    writeln(manifest.target().cflags());
     write("ldflags = ");
-    writeln(config.target().ldflags());
+    writeln(manifest.target().ldflags());
     write("cc = ");
     writeln(compiler);
 
@@ -50,13 +50,13 @@ void NinjaGenerator::generate(const Config& config,
 
     // obj_dir will be the directory where build files where go, e.g.
     // `QobsFiles/packagedir.dir`
-    auto obj_dir = QOBS_FILES_DIR / (config.package().name() + ".dir");
+    auto obj_dir = QOBS_FILES_DIR / (manifest.package().name() + ".dir");
 
     // get object path, e.g.: src/main.cpp turns into
     // QobsFiles/packagename.dir/src/main.cpp.obj
     auto get_obj_path = [&](std::filesystem::path path) {
         return escape_path(obj_dir / std::filesystem::relative(
-                                         path, config.package_root())) +
+                                         path, manifest.package_root())) +
                ".obj";
     };
 

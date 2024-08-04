@@ -78,12 +78,12 @@ private:
     std::vector<Dependency> m_list;
 };
 
-class Config {
+class Manifest {
 public:
-    Config(std::filesystem::path package_path) : m_package_root(package_path){};
-    Config(std::filesystem::path package_path, std::string name){};
+    Manifest(std::filesystem::path package_path) : m_package_root(package_path){};
+    Manifest(std::filesystem::path package_path, std::string name){};
 
-    void parse_file(std::string_view config_path);
+    void parse_file(std::string_view manifest_path);
     void save_to(std::filesystem::path path);
     inline const std::filesystem::path& package_root() const {
         return m_package_root;
@@ -102,10 +102,10 @@ public:
     Target m_target;
 
 private:
-    // Path where the config is located.
+    // Path where the manifest is located.
     std::filesystem::path m_package_root;
 
-    // Parsed TOML configuration.
+    // Parsed TOML manifest.
     toml::table m_tbl;
 
     // [dependencies]

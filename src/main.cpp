@@ -1,5 +1,5 @@
 #include "builder.hpp"
-#include "config.hpp"
+#include "manifest.hpp"
 #include "spdlog/spdlog.h"
 #include "utils.hpp"
 #include <argparse/argparse.hpp>
@@ -12,7 +12,7 @@
 
 using namespace spdlog;
 
-constexpr auto& CONFIG_NAME = "Qobs.toml";
+constexpr auto& MANIFEST_NAME = "Qobs.toml";
 constexpr auto& DEFAULT_C = R"(#include <stdio.h>
 
 int main(void) {
@@ -34,14 +34,14 @@ std::optional<std::filesystem::path>
 find_qobs_toml(std::filesystem::path initial_path) {
     auto path = initial_path;
     auto root = initial_path.root_path();
-    while (!std::filesystem::exists(path / CONFIG_NAME)) {
+    while (!std::filesystem::exists(path / MANIFEST_NAME)) {
         trace("searching for Qobs.toml inside `{}`", path.string());
         if (path == root) {
             return std::nullopt;
         }
         path = path.parent_path();
     }
-    return path / CONFIG_NAME;
+    return path / MANIFEST_NAME;
 }
 
 // returns path to the built executable/library
@@ -57,16 +57,16 @@ begin_build(std::filesystem::path path, std::string_view build_dir,
     // find Qobs.toml
     auto qobs_toml_path = find_qobs_toml(path);
     if (!qobs_toml_path) {
-        error("{} not found in `{}` or any parent directory", CONFIG_NAME,
+        error("{} not found in `{}` or any parent directory", MANIFEST_NAME,
               path.string());
         return std::nullopt;
     }
     auto toml_path = *qobs_toml_path;
 
     // parse Qobs.toml
-    Config config{toml_path.parent_path()};
+    Manifest manifest{toml_path.parent_path()};
     try {
-        config.parse_file(toml_path.string());
+        manifest.parse_file(toml_path.string());
     } catch (const std::exception& err) {
         error("couldn't parse `{}`: {}", toml_path.string(), err.what());
         return std::nullopt;
@@ -77,7 +77,7 @@ begin_build(std::filesystem::path path, std::string_view build_dir,
 
     // create builder, this will scan the package sources, download required
     // packages, and generate the project
-    Builder builder(config);
+    Builder builder(manifest);
     try {
         return builder.build(gen, build_dir, cc);
     } catch (const std::exception& err) {
@@ -104,13 +104,13 @@ void new_package(std::string name) {
     }
 
     // create Qobs.toml
-    Config config{path};
-    config.m_package.m_name = name;
+    Manifest manifest{path};
+    manifest.m_package.m_name = name;
 
     // description
     fmt::print("Description (optional): ");
-    std::getline(std::cin, config.m_package.m_description);
-    utils::trim_in_place(config.m_package.m_description);
+    std::getline(std::cin, manifest.m_package.m_description);
+    utils::trim_in_place(manifest.m_package.m_description);
 
     // authors
     fmt::print("Author (optional): ");
@@ -118,7 +118,7 @@ void new_package(std::string name) {
     std::getline(std::cin, author);
     utils::trim_in_place(author);
     if (!author.empty()) {
-        config.m_package.add_author(author);
+        manifest.m_package.add_author(author);
     }
 
     // use C++ (y/n)?
@@ -128,7 +128,7 @@ void new_package(std::string name) {
     utils::trim_in_place(use_cpp);
     bool cxx =
         use_cpp == "y" || use_cpp == "Y" || use_cpp == "1" || use_cpp.empty();
-    config.m_target.m_cxx = cxx;
+    manifest.m_target.m_cxx = cxx;
 
     // scaffold package directory
     auto scaffold_path = path;
@@ -142,11 +142,11 @@ void new_package(std::string name) {
         return;
     }
 
-    auto config_path = path / CONFIG_NAME;
+    auto manifest_path = path / MANIFEST_NAME;
     try {
-        config.save_to(config_path);
+        manifest.save_to(manifest_path);
     } catch (const std::exception& err) {
-        error("couldn't create `{}`: {}", config_path.string(), err.what());
+        error("couldn't create `{}`: {}", manifest_path.string(), err.what());
         return;
     }
 

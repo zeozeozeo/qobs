@@ -10,7 +10,7 @@ std::filesystem::path Builder::build(std::shared_ptr<Generator> gen,
                                      std::optional<std::string> compiler) {
     // create build directory
     try {
-        std::filesystem::create_directory(m_config.package_root() / build_dir);
+        std::filesystem::create_directory(m_manifest.package_root() / build_dir);
     } catch (const std::exception& err) {
         throw std::runtime_error(
             fmt::format("couldn't create build directory: {}", err.what()));
@@ -24,25 +24,25 @@ std::filesystem::path Builder::build(std::shared_ptr<Generator> gen,
 
     // determine exe name (FIXME: cross-compilation?)
 #ifdef QOBS_IS_WINDOWS
-    auto exe_name = m_config.package().name() + ".exe";
+    auto exe_name = m_manifest.package().name() + ".exe";
 #else
-    auto exe_name = m_config.package().name();
+    auto exe_name = m_manifest.package().name();
 #endif
 
     // find cc, prefer cxx if compiling C++ package
     auto cc = compiler ? compiler.value()
-                       : utils::find_compiler(m_config.m_target.m_cxx);
+                       : utils::find_compiler(m_manifest.m_target.m_cxx);
     if (cc.empty())
         throw std::runtime_error(
             "couldn't find suitable C/C++ compiler, either re-run with `-cc`, "
             "set the `CC` or `CXX` environment variable or add your compiler "
             "to PATH");
 
-    gen->generate(m_config, m_files, exe_name, cc);
+    gen->generate(m_manifest, m_files, exe_name, cc);
     trace("build.ninja:\n{}", gen->code());
 
     // write project files
-    auto build_file_path = m_config.package_root() / build_dir / "build.ninja";
+    auto build_file_path = m_manifest.package_root() / build_dir / "build.ninja";
     std::fstream file(build_file_path, std::ios::out);
     file << gen->code();
     file.close();
@@ -51,22 +51,22 @@ std::filesystem::path Builder::build(std::shared_ptr<Generator> gen,
     gen->invoke(build_file_path);
 
     // return path to built file
-    return m_config.package_root() / build_dir / exe_name;
+    return m_manifest.package_root() / build_dir / exe_name;
 }
 
 void Builder::scan_files() {
     debug("scanning files...");
-    for (auto& query : m_config.target().sources()) {
+    for (auto& query : m_manifest.target().sources()) {
         // since `qobs build` can be used with a path (e.g. `qobs build
         // package-dir`) we need to make the query relative to the path qobs is
         // being run from
-        auto relative_query = m_config.package_root().string();
+        auto relative_query = m_manifest.package_root().string();
         relative_query.push_back(std::filesystem::path::preferred_separator);
         relative_query.append(query);
 
         // recursively glob the query
         trace("globbing relative query: {}", relative_query);
-        auto files = m_config.target().glob_recurse()
+        auto files = m_manifest.target().glob_recurse()
                          ? glob::rglob(relative_query)
                          : glob::glob(relative_query);
 
