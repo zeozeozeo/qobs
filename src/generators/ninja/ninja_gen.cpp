@@ -54,7 +54,7 @@ void NinjaGenerator::generate(const Config& config,
     // QobsFiles/packagename.dir/src/main.cpp.obj
     auto get_obj_path = [&](std::filesystem::path path) {
         return escape_path(obj_dir / std::filesystem::relative(
-                                         path, config.package_path())) +
+                                         path, config.package_root())) +
                ".obj";
     };
 

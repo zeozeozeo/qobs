@@ -8,7 +8,7 @@ using namespace spdlog;
 void Builder::build(std::shared_ptr<Generator> gen) {
     // create build directory
     try {
-        std::filesystem::create_directory(m_config.package_path() / "build");
+        std::filesystem::create_directory(m_config.package_root() / "build");
     } catch (const std::exception& err) {
         throw std::runtime_error(
             fmt::format("couldn't create build directory: {}", err.what()));
@@ -31,7 +31,7 @@ void Builder::build(std::shared_ptr<Generator> gen) {
     trace("build.ninja:\n{}", gen->code());
 
     // write project files
-    auto build_file_path = m_config.package_path() / "build" / "build.ninja";
+    auto build_file_path = m_config.package_root() / "build" / "build.ninja";
     std::fstream file(build_file_path, std::ios::out);
     file << gen->code();
     file.close();
@@ -46,7 +46,7 @@ void Builder::scan_files() {
         // since `qobs build` can be used with a path (e.g. `qobs build
         // package-dir`) we need to make the query relative to the path qobs is
         // being run from
-        auto relative_query = m_config.package_path().string();
+        auto relative_query = m_config.package_root().string();
         relative_query.push_back(std::filesystem::path::preferred_separator);
         relative_query.append(query);
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "dependency.hpp"
 #include <filesystem>
 #include <toml++/toml.hpp>
 
@@ -61,15 +62,28 @@ private:
     std::string m_ldflags;
 };
 
+class Dependencies {
+public:
+    Dependencies(){};
+    void parse(toml::table deps, const std::filesystem::path& package_root);
+
+    inline const std::vector<Dependency>& list() const {
+        return m_list;
+    }
+
+private:
+    std::vector<Dependency> m_list;
+};
+
 class Config {
 public:
-    Config(std::filesystem::path package_path) : m_package_path(package_path){};
+    Config(std::filesystem::path package_path) : m_package_root(package_path){};
     Config(std::filesystem::path package_path, std::string name){};
 
     void parse_file(std::string_view config_path);
     void save_to(std::filesystem::path path);
-    inline const std::filesystem::path& package_path() const {
-        return m_package_path;
+    inline const std::filesystem::path& package_root() const {
+        return m_package_root;
     }
     inline const Package& package() const {
         return m_package;
@@ -83,11 +97,14 @@ public:
 
 private:
     // Path where the config is located.
-    std::filesystem::path m_package_path;
+    std::filesystem::path m_package_root;
 
     // Parsed TOML configuration.
     toml::table m_tbl;
 
     // [target]
     Target m_target;
+
+    // [dependencies]
+    Dependencies m_dependencies;
 };
