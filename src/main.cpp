@@ -278,8 +278,16 @@ int main(int argc, char* argv[]) {
             args = run_command.get<std::vector<std::string>>("args");
         }
 
+        // on Unix, the path needs to be prefixed with ./
+        // TODO: make this use `utils::popen`
+#ifdef QOBS_IS_WINDOWS
         auto cmd =
             fmt::format("\"{}\" {}", exe_path->string(), fmt::join(args, " "));
+#else
+        auto cmd =
+            fmt::format("\".{}\" {}", exe_path->string(), fmt::join(args, " "));
+#endif
+
         trace(cmd);
         system(cmd.c_str());
 

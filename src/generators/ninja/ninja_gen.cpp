@@ -81,15 +81,10 @@ void NinjaGenerator::generate(const Config& config,
 }
 
 void NinjaGenerator::invoke(std::filesystem::path path) {
-    // auto cwd = path.parent_path();
-    // auto res = utils::popen({"ninja", "-C", cwd.string(), "-f",
-    // path.string()});
-    //
-    // if (res != 0) {
-    //    error("ninja failed with code {}", res);
-    //}
     auto cwd = path.parent_path();
     trace("invoking ninja in `{}`", cwd.string());
+
+    // TODO: make this use `utils::popen`
     system(fmt::format("ninja -C \"{}\" -f \"{}\"", cwd.string(), path.string())
                .c_str());
 }
