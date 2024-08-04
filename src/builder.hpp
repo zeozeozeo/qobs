@@ -6,7 +6,9 @@ class Builder {
 public:
     Builder(Config config) : m_config(config) {}
 
-    void build(std::shared_ptr<Generator> gen);
+    // returns path to the built executable/library
+    std::filesystem::path build(std::shared_ptr<Generator> gen,
+                                std::string_view build_dir);
     Config& config() {
         return m_config;
     }

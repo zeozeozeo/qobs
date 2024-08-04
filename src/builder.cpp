@@ -5,10 +5,11 @@
 
 using namespace spdlog;
 
-void Builder::build(std::shared_ptr<Generator> gen) {
+std::filesystem::path Builder::build(std::shared_ptr<Generator> gen,
+                                     std::string_view build_dir) {
     // create build directory
     try {
-        std::filesystem::create_directory(m_config.package_root() / "build");
+        std::filesystem::create_directory(m_config.package_root() / build_dir);
     } catch (const std::exception& err) {
         throw std::runtime_error(
             fmt::format("couldn't create build directory: {}", err.what()));
@@ -31,13 +32,16 @@ void Builder::build(std::shared_ptr<Generator> gen) {
     trace("build.ninja:\n{}", gen->code());
 
     // write project files
-    auto build_file_path = m_config.package_root() / "build" / "build.ninja";
+    auto build_file_path = m_config.package_root() / build_dir / "build.ninja";
     std::fstream file(build_file_path, std::ios::out);
     file << gen->code();
     file.close();
 
     // invoke generator
     gen->invoke(build_file_path);
+
+    // return path to built file
+    return m_config.package_root() / build_dir / exe_name;
 }
 
 void Builder::scan_files() {

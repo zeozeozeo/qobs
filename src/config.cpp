@@ -178,7 +178,7 @@ void Config::save_to(std::filesystem::path path) {
             file << fmt_field(dep.name(), dep.value()) << "\n";
             break;
         case DependencyType::path:
-            auto tbl = toml::table{{"path", dep.value()}};
+            toml::table tbl{{"path", dep.value()}};
             file << fmt_field(dep.name(), tbl) << "\n";
             break;
         }

@@ -44,7 +44,9 @@ find_qobs_toml(std::filesystem::path initial_path) {
     return path / CONFIG_NAME;
 }
 
-void begin_build(std::filesystem::path path) {
+// returns path to the built executable/library
+std::optional<std::filesystem::path> begin_build(std::filesystem::path path,
+                                                 std::string_view build_dir) {
     if (!path.is_absolute()) {
         trace("path `{}` is relative, promoting to absolute", path.string());
         path = std::filesystem::absolute(path);
@@ -56,7 +58,7 @@ void begin_build(std::filesystem::path path) {
     if (!qobs_toml_path) {
         error("{} not found in `{}` or any parent directory", CONFIG_NAME,
               path.string());
-        return;
+        return std::nullopt;
     }
     auto toml_path = *qobs_toml_path;
 
@@ -66,20 +68,20 @@ void begin_build(std::filesystem::path path) {
         config.parse_file(toml_path.string());
     } catch (const std::exception& err) {
         error("couldn't parse `{}`: {}", toml_path.string(), err.what());
-        return;
+        return std::nullopt;
     }
 
     // create a generator
-    std::shared_ptr<Generator> gen = std::make_shared<NinjaGenerator>();
+    auto gen = std::make_shared<NinjaGenerator>();
 
     // create builder, this will scan the package sources, download required
     // packages, and generate the project
     Builder builder(config);
     try {
-        builder.build(gen);
+        return builder.build(gen, build_dir);
     } catch (const std::exception& err) {
         error("failed to build package: {}", err.what());
-        return;
+        return std::nullopt;
     }
 }
 
@@ -165,9 +167,16 @@ void new_package(std::string name) {
          path.string());
 }
 
+void validate_build_dir(std::string& build_dir) {
+    if (!utils::is_directory_valid(build_dir)) {
+        warn("invalid build directory `{}`", build_dir);
+        build_dir = "build";
+    }
+}
+
 int main(int argc, char* argv[]) {
     set_pattern("%^%l%$: %v");
-    set_level(level::trace);
+    set_level(level::info);
     argparse::ArgumentParser program("qobs");
 
     // qobs new
@@ -189,9 +198,22 @@ int main(int argc, char* argv[]) {
         .default_value("build")
         .help("Build directory");
 
+    // qobs run
+    argparse::ArgumentParser run_command("run");
+    run_command.add_description("Compile and run a package");
+    run_command.add_argument("path")
+        .help("Path to the package to run")
+        .default_value(std::filesystem::current_path().string())
+        .nargs(argparse::nargs_pattern::optional);
+    run_command.add_argument("-b", "--build-dir")
+        .default_value("build")
+        .help("Build directory");
+    run_command.add_argument("args").remaining();
+
     // add subparsers
-    program.add_subparser(build_command); // qobs build
     program.add_subparser(new_command);   // qobs new
+    program.add_subparser(build_command); // qobs build
+    program.add_subparser(run_command);   // qobs run
 
     try {
         program.parse_args(argc, argv);
@@ -209,25 +231,51 @@ int main(int argc, char* argv[]) {
     // handle subcommands
     if (program.is_subcommand_used("build")) {
         auto path = build_command.get<std::string>("path");
-        auto builddir = build_command.get<std::string>("--build-dir");
-        if (!utils::is_directory_valid(builddir)) {
-            warn("invalid build directory `{}`", builddir);
-            builddir = "build";
-        }
+        auto build_dir = build_command.get<std::string>("--build-dir");
+        validate_build_dir(build_dir);
 
+        std::optional<std::filesystem::path> exe_path;
         try {
-            begin_build(path);
+            exe_path = begin_build(path, build_dir);
         } catch (const std::exception& err) {
             error("failed to begin build: {}", err.what());
             return 1;
         }
-        return 0;
+        return exe_path ? 0 : 1;
     } else if (program.is_subcommand_used("new")) {
         std::string name;
         if (new_command.is_used("name")) {
             name = new_command.get<std::string>("name");
         }
         new_package(name);
+        return 0;
+    } else if (program.is_subcommand_used("run")) {
+        // almost the same as build
+        auto path = run_command.get<std::string>("path");
+        auto build_dir = run_command.get<std::string>("--build-dir");
+        validate_build_dir(build_dir);
+
+        std::optional<std::filesystem::path> exe_path;
+        try {
+            exe_path = begin_build(path, build_dir);
+        } catch (const std::exception& err) {
+            error("failed to begin build: {}", err.what());
+            return 1;
+        }
+
+        if (!exe_path)
+            return 1;
+
+        std::vector<std::string> args;
+        if (run_command.is_used("args")) {
+            args = run_command.get<std::vector<std::string>>("args");
+        }
+
+        auto cmd =
+            fmt::format("\"{}\" {}", exe_path->string(), fmt::join(args, " "));
+        trace(cmd);
+        system(cmd.c_str());
+
         return 0;
     }
 
