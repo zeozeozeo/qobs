@@ -1,5 +1,5 @@
 #pragma once
-#include <optional>
+#include <initializer_list>
 #include <string>
 #include <toml++/toml.hpp>
 
@@ -22,9 +22,12 @@ std::string replace(std::string s, const std::string& search,
 
 bool is_directory_valid(std::string dir);
 
-std::pair<std::string, std::optional<std::string>>
-rsplit_once(const std::string& s, char delimiter);
-
 std::string toml_type_to_str(toml::node_type type);
+
+// Throws std::runtime_error if subprocess failed to create or join.
+int popen(std::initializer_list<std::string> args);
+
+// Will return an empty string if no compiler is found.
+std::string find_compiler(bool need_cxx);
 
 } // namespace utils

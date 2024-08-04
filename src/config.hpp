@@ -50,6 +50,9 @@ public:
         return m_ldflags;
     }
 
+    // Prefer C++ compilers?
+    bool m_cxx;
+
 private:
     bool m_glob_recurse{true};
     std::vector<std::string> m_sources{
@@ -95,15 +98,15 @@ public:
     // [package]
     Package m_package;
 
+    // [target]
+    Target m_target;
+
 private:
     // Path where the config is located.
     std::filesystem::path m_package_root;
 
     // Parsed TOML configuration.
     toml::table m_tbl;
-
-    // [target]
-    Target m_target;
 
     // [dependencies]
     Dependencies m_dependencies;

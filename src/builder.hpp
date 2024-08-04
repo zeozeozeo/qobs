@@ -8,7 +8,8 @@ public:
 
     // returns path to the built executable/library
     std::filesystem::path build(std::shared_ptr<Generator> gen,
-                                std::string_view build_dir);
+                                std::string_view build_dir,
+                                std::optional<std::string> compiler);
     Config& config() {
         return m_config;
     }

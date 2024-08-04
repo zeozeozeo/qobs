@@ -53,6 +53,7 @@ void Target::parse(toml::node_view<toml::node> target) {
     m_glob_recurse = target["glob_recurse"].value_or(false);
     m_cflags = target["cflags"].value_or("");
     m_ldflags = target["ldflags"].value_or("");
+    m_cxx = target["cxx"].value_or(false);
 }
 
 void Dependencies::parse(toml::table deps,
@@ -169,6 +170,7 @@ void Config::save_to(std::filesystem::path path) {
     if (!m_target.ldflags().empty()) {
         file << fmt_field("ldflags", m_target.ldflags()) << "\n";
     }
+    file << fmt_field("cxx", m_target.m_cxx) << "\n";
 
     // [dependencies]
     file << "\n[dependencies]\n";

@@ -45,8 +45,9 @@ find_qobs_toml(std::filesystem::path initial_path) {
 }
 
 // returns path to the built executable/library
-std::optional<std::filesystem::path> begin_build(std::filesystem::path path,
-                                                 std::string_view build_dir) {
+std::optional<std::filesystem::path>
+begin_build(std::filesystem::path path, std::string_view build_dir,
+            std::optional<std::string> cc) {
     if (!path.is_absolute()) {
         trace("path `{}` is relative, promoting to absolute", path.string());
         path = std::filesystem::absolute(path);
@@ -78,7 +79,7 @@ std::optional<std::filesystem::path> begin_build(std::filesystem::path path,
     // packages, and generate the project
     Builder builder(config);
     try {
-        return builder.build(gen, build_dir);
+        return builder.build(gen, build_dir, cc);
     } catch (const std::exception& err) {
         error("failed to build package: {}", err.what());
         return std::nullopt;
@@ -127,6 +128,7 @@ void new_package(std::string name) {
     utils::trim_in_place(use_cpp);
     bool cxx =
         use_cpp == "y" || use_cpp == "Y" || use_cpp == "1" || use_cpp.empty();
+    config.m_target.m_cxx = cxx;
 
     // scaffold package directory
     auto scaffold_path = path;
@@ -169,14 +171,14 @@ void new_package(std::string name) {
 
 void validate_build_dir(std::string& build_dir) {
     if (!utils::is_directory_valid(build_dir)) {
-        warn("invalid build directory `{}`", build_dir);
+        warn("invalid build directory `{}`, defaulting to `build`", build_dir);
         build_dir = "build";
     }
 }
 
 int main(int argc, char* argv[]) {
     set_pattern("%^%l%$: %v");
-    set_level(level::info);
+    set_level(level::trace);
     argparse::ArgumentParser program("qobs");
 
     // qobs new
@@ -194,6 +196,8 @@ int main(int argc, char* argv[]) {
         .help("Path to the package to build")
         .default_value(std::filesystem::current_path().string())
         .nargs(argparse::nargs_pattern::optional);
+    build_command.add_argument("-cc").help(
+        "Override the default C/C++ compiler");
     build_command.add_argument("-b", "--build-dir")
         .default_value("build")
         .help("Build directory");
@@ -205,6 +209,7 @@ int main(int argc, char* argv[]) {
         .help("Path to the package to run")
         .default_value(std::filesystem::current_path().string())
         .nargs(argparse::nargs_pattern::optional);
+    run_command.add_argument("-cc").help("Override the default C/C++ compiler");
     run_command.add_argument("-b", "--build-dir")
         .default_value("build")
         .help("Build directory");
@@ -218,7 +223,7 @@ int main(int argc, char* argv[]) {
     try {
         program.parse_args(argc, argv);
     } catch (const std::exception& err) {
-        error("failed to parse arguments: {}", err.what());
+        error(err.what());
         return 1;
     }
 
@@ -233,10 +238,11 @@ int main(int argc, char* argv[]) {
         auto path = build_command.get<std::string>("path");
         auto build_dir = build_command.get<std::string>("--build-dir");
         validate_build_dir(build_dir);
+        auto cc = build_command.present<std::string>("-cc");
 
         std::optional<std::filesystem::path> exe_path;
         try {
-            exe_path = begin_build(path, build_dir);
+            exe_path = begin_build(path, build_dir, cc);
         } catch (const std::exception& err) {
             error("failed to begin build: {}", err.what());
             return 1;
@@ -254,10 +260,11 @@ int main(int argc, char* argv[]) {
         auto path = run_command.get<std::string>("path");
         auto build_dir = run_command.get<std::string>("--build-dir");
         validate_build_dir(build_dir);
+        auto cc = build_command.present<std::string>("-cc");
 
         std::optional<std::filesystem::path> exe_path;
         try {
-            exe_path = begin_build(path, build_dir);
+            exe_path = begin_build(path, build_dir, cc);
         } catch (const std::exception& err) {
             error("failed to begin build: {}", err.what());
             return 1;

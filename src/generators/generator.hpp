@@ -21,7 +21,8 @@ public:
 
     virtual void generate(const Config& config,
                           const std::vector<BuildFile>& files,
-                          std::string_view exe_name) = 0;
+                          std::string_view exe_name,
+                          std::string_view compiler) = 0;
     virtual void invoke(std::filesystem::path path){
         // nop
     };

@@ -6,7 +6,8 @@
 using namespace spdlog;
 
 std::filesystem::path Builder::build(std::shared_ptr<Generator> gen,
-                                     std::string_view build_dir) {
+                                     std::string_view build_dir,
+                                     std::optional<std::string> compiler) {
     // create build directory
     try {
         std::filesystem::create_directory(m_config.package_root() / build_dir);
@@ -28,7 +29,16 @@ std::filesystem::path Builder::build(std::shared_ptr<Generator> gen,
     auto exe_name = m_config.package().name();
 #endif
 
-    gen->generate(m_config, m_files, exe_name);
+    // find cc, prefer cxx if compiling C++ package
+    auto cc = compiler ? compiler.value()
+                       : utils::find_compiler(m_config.m_target.m_cxx);
+    if (cc.empty())
+        throw std::runtime_error(
+            "couldn't find suitable C/C++ compiler, either re-run with `-cc`, "
+            "set the `CC` or `CXX` environment variable or add your compiler "
+            "to PATH");
+
+    gen->generate(m_config, m_files, exe_name, cc);
     trace("build.ninja:\n{}", gen->code());
 
     // write project files

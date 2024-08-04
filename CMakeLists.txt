@@ -20,6 +20,8 @@ CPMAddPackage("gh:gabime/spdlog#5ebfc927306fd7ce551fa22244be801cf2b9fdd9")
 CPMAddPackage("gh:p-ranav/glob#d025092c0e1eb1a8b226d3a799fd32680d2fd13f")
 CPMAddPackage("gh:libgit2/libgit2@1.8.1")
 
+target_include_directories(${PROJECT_NAME} PRIVATE thirdparty)
+
 # link dependencies
 target_link_libraries(${PROJECT_NAME}
                       fmt::fmt

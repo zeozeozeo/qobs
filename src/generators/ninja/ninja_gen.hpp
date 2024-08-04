@@ -5,7 +5,8 @@ class NinjaGenerator : public Generator {
 public:
     NinjaGenerator(){};
     void generate(const Config& config, const std::vector<BuildFile>& files,
-                  std::string_view exe_name) override;
+                  std::string_view exe_name,
+                  std::string_view compiler) override;
     void invoke(std::filesystem::path path) override;
     std::string& code() override {
         return m_code;

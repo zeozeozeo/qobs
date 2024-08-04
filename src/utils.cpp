@@ -1,5 +1,11 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "utils.hpp"
 #include <filesystem>
+#include <spdlog/spdlog.h>
+#include <subprocess.h>
+
+using namespace spdlog;
 
 namespace utils {
 
@@ -16,6 +22,7 @@ void replace_in_place(std::string& s, const std::string& search,
         pos += replace.length();
     }
 }
+
 std::string replace(std::string s, const std::string& search,
                     const std::string& replace) {
     size_t pos = 0;
@@ -25,24 +32,6 @@ std::string replace(std::string s, const std::string& search,
     }
     return s;
 }
-
-// int popen(std::initializer_list<std::string> args) {
-//     std::vector<char*> vc;
-//     std::transform(args.begin(), args.end(), std::back_inserter(vc),
-//                    [](const std::string& s) {
-//                        char* pc = new char[s.size() + 1];
-//                        std::strcpy(pc, s.c_str());
-//                        return pc;
-//                    });
-//
-//     struct subprocess_s subprocess;
-//     int result = subprocess_create(&vc[0], 0, &subprocess);
-//
-//     for (size_t i = 0; i < vc.size(); i++)
-//         delete[] vc[i];
-//
-//     return result;
-// }
 
 bool is_directory_valid(std::string dir) {
     try {
@@ -61,20 +50,84 @@ std::string all_before_char(const std::string& s, char c) {
     return s.substr(0, pos);
 }
 
-std::pair<std::string, std::optional<std::string>>
-rsplit_once(const std::string& s, char delimiter) {
-    size_t pos = s.rfind(delimiter);
-    if (pos == std::string::npos) {
-        return {s, std::nullopt};
-    } else {
-        return {s.substr(0, pos), s.substr(pos + 1)};
-    }
-}
-
 std::string toml_type_to_str(toml::node_type type) {
     std::stringstream ss;
     ss << type;
     return ss.str();
+}
+
+int popen(std::initializer_list<std::string> args) {
+    // prepare argv
+    std::vector<const char*> argv;
+    for (auto& arg : args) {
+        argv.push_back(arg.c_str());
+    }
+    argv.push_back(nullptr);
+
+    // spawn process
+    struct subprocess_s process;
+    int result = subprocess_create(argv.data(), 0, &process);
+    if (result != 0)
+        throw std::runtime_error(
+            fmt::format("failed to create subprocess (code {})", result));
+
+    // wait on process
+    int process_return;
+    result = subprocess_join(&process, &process_return);
+    if (result != 0)
+        throw std::runtime_error(
+            fmt::format("failed to join on subprocess (code {})", result));
+
+    return process_return;
+}
+
+// TODO: add Zig's `zig cc`
+#ifdef QOBS_IS_WINDOWS
+const std::vector<std::string> COMMON_C_COMPILERS = {
+    "cl.exe", "clang.exe", "gcc.exe", "icx.exe", "icc.exe", "tcc.exe"};
+const std::vector<std::string> COMMON_CXX_COMPILERS = {
+    "cl.exe",   "clang++.exe", "g++.exe",  "clang.exe", "gcc.exe",
+    "icpx.exe", "icx.exe",     "icpc.exe", "icc.exe"};
+#else
+const std::vector<std::string> COMMON_C_COMPILERS = {"clang", "gcc", "icx",
+                                                     "icc", "tcc"};
+const std::vector<std::string> COMMON_CXX_COMPILERS = {
+    "clang++", "g++", "clang", "gcc", "icpx", "icx", "icpc", "icc"};
+#endif
+
+std::string find_compiler(bool need_cxx) {
+    // check CC/CXX envvars
+    const char* cc = std::getenv("CC");
+    const char* cxx = std::getenv("CC");
+
+    if (cc && cxx) {
+        return need_cxx ? cxx : cc;
+    } else if (cc) {
+        return cc;
+    } else if (cxx) {
+        return cxx;
+    } else {
+        // CC/CXX envvar not set, search in PATH
+        for (const auto& compiler :
+             need_cxx ? COMMON_CXX_COMPILERS : COMMON_C_COMPILERS) {
+            trace("trying compiler: {}", compiler);
+            int result;
+            try {
+                result = popen({compiler, "--version"});
+            } catch (const std::exception& e) {
+                // this is not critical, we'll just try the next compiler
+                trace("failed to spawn `{}`: {}", compiler, e.what());
+                continue;
+            }
+            if (result == 0) {
+                debug("found working compiler: {}", compiler);
+                return compiler;
+            } else {
+                debug("compiler(?) `{}` exited with code {}", compiler, result);
+            }
+        }
+    }
+    return "";
 }
 
 } // namespace utils
