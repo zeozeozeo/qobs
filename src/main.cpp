@@ -41,36 +41,45 @@ find_qobs_toml(std::filesystem::path initial_path) {
         }
         path = path.parent_path();
     }
+    trace("found Qobs.toml in `{}`", path.string());
     return path / MANIFEST_NAME;
+}
+
+std::optional<std::pair<Manifest, std::filesystem::path>>
+find_and_parse_manifest(std::filesystem::path path) {
+    if (!path.is_absolute()) {
+        path = std::filesystem::absolute(path);
+    }
+
+    auto toml_path = find_qobs_toml(path);
+    if (!toml_path) {
+        error("{} not found in `{}` or any parent directory", MANIFEST_NAME,
+              path.string());
+        return std::nullopt;
+    }
+
+    // parse Qobs.toml
+    Manifest manifest{toml_path->parent_path()};
+    try {
+        manifest.parse_file(toml_path->string());
+    } catch (const std::exception& err) {
+        error("couldn't parse `{}`: {}", toml_path->string(), err.what());
+        return std::nullopt;
+    }
+
+    return std::make_pair(manifest, *toml_path);
 }
 
 // returns path to the built executable/library
 std::optional<std::filesystem::path>
 begin_build(std::filesystem::path path, std::string_view build_dir,
             std::optional<std::string> cc) {
-    if (!path.is_absolute()) {
-        trace("path `{}` is relative, promoting to absolute", path.string());
-        path = std::filesystem::absolute(path);
-    }
     debug("building package: {}", path.string());
 
-    // find Qobs.toml
-    auto qobs_toml_path = find_qobs_toml(path);
-    if (!qobs_toml_path) {
-        error("{} not found in `{}` or any parent directory", MANIFEST_NAME,
-              path.string());
+    auto manifest_opt = find_and_parse_manifest(path);
+    if (!manifest_opt)
         return std::nullopt;
-    }
-    auto toml_path = *qobs_toml_path;
-
-    // parse Qobs.toml
-    Manifest manifest{toml_path.parent_path()};
-    try {
-        manifest.parse_file(toml_path.string());
-    } catch (const std::exception& err) {
-        error("couldn't parse `{}`: {}", toml_path.string(), err.what());
-        return std::nullopt;
-    }
+    auto [manifest, _] = *manifest_opt;
 
     // create a generator
     auto gen = std::make_shared<NinjaGenerator>();
@@ -169,6 +178,42 @@ void new_package(std::string name) {
          path.string());
 }
 
+void add_dependencies(std::filesystem::path path,
+                      std::vector<std::string> deps) {
+    auto manifest_opt = find_and_parse_manifest(path);
+    if (!manifest_opt)
+        return; // error printed in find_and_parse_manifest
+    auto [manifest, toml_path] = *manifest_opt;
+
+    for (auto& dep : deps) {
+        if (dep.empty())
+            continue;
+
+        std::string name;
+        for (;;) {
+            fmt::print("Dependency name for `{}`? ", dep);
+            std::getline(std::cin, name);
+            if (name.empty()) {
+                error("dependency name cannot be empty");
+                continue;
+            }
+            if (manifest.m_dependencies.has(name, dep)) {
+                error("dependency `{} = '{}'` already exists", name, dep);
+                continue;
+            }
+            break;
+        }
+
+        manifest.m_dependencies.add({name, dep});
+    }
+
+    try {
+        manifest.save_to(toml_path);
+    } catch (const std::exception& err) {
+        error("couldn't update `{}`: {}", toml_path.string(), err.what());
+    }
+}
+
 void validate_build_dir(std::string& build_dir) {
     if (!utils::is_directory_valid(build_dir)) {
         warn("invalid build directory `{}`, defaulting to `build`", build_dir);
@@ -189,13 +234,14 @@ int main(int argc, char* argv[]) {
 
     program.add_subparser(new_command);
 
+    auto current_path = std::filesystem::current_path().string();
+
     // qobs build
     argparse::ArgumentParser build_command("build");
     build_command.add_description("Compile a package");
     build_command.add_argument("path")
         .help("Path to the package to build")
-        .default_value(std::filesystem::current_path().string())
-        .nargs(argparse::nargs_pattern::optional);
+        .default_value(current_path);
     build_command.add_argument("-cc").help(
         "Override the default C/C++ compiler");
     build_command.add_argument("-b", "--build-dir")
@@ -207,18 +253,37 @@ int main(int argc, char* argv[]) {
     run_command.add_description("Compile and run a package");
     run_command.add_argument("path")
         .help("Path to the package to run")
-        .default_value(std::filesystem::current_path().string())
-        .nargs(argparse::nargs_pattern::optional);
+        .default_value(current_path);
     run_command.add_argument("-cc").help("Override the default C/C++ compiler");
     run_command.add_argument("-b", "--build-dir")
         .default_value("build")
         .help("Build directory");
-    run_command.add_argument("args").remaining();
+    // FIXME: in the --help message for this, it is displayed like this:
+    // run [--help] [--version] [-cc VAR] [--build-dir VAR] [-- VAR...] path
+    //                                                      ^^^^^^^^^^^
+    // this should be printed **after** the `path` argument, not before it
+    // this is an argparse issue imo
+    run_command.add_argument("--")
+        .help("All arguments after this will be passed to the program")
+        .nargs(argparse::nargs_pattern::any);
+
+    // qobs add
+    argparse::ArgumentParser add_command("add");
+    add_command.add_description("Add dependencies to a manifest file");
+    add_command.add_argument("-p", "--path")
+        .help("Path to the package")
+        .default_value(current_path);
+    // FIXME: this shows as [nargs: 0 or more] in the --help message,
+    // seems to be an argparse issue
+    add_command.add_argument("deps")
+        .nargs(argparse::nargs_pattern::at_least_one)
+        .remaining();
 
     // add subparsers
     program.add_subparser(new_command);   // qobs new
     program.add_subparser(build_command); // qobs build
     program.add_subparser(run_command);   // qobs run
+    program.add_subparser(add_command);   // qobs add
 
     try {
         program.parse_args(argc, argv);
@@ -254,7 +319,6 @@ int main(int argc, char* argv[]) {
             name = new_command.get<std::string>("name");
         }
         new_package(name);
-        return 0;
     } else if (program.is_subcommand_used("run")) {
         // almost the same as build
         auto path = run_command.get<std::string>("path");
@@ -273,9 +337,10 @@ int main(int argc, char* argv[]) {
         if (!exe_path)
             return 1;
 
+        // all arguments after -- are passed to the program
         std::vector<std::string> args;
-        if (run_command.is_used("args")) {
-            args = run_command.get<std::vector<std::string>>("args");
+        if (run_command.is_used("--")) {
+            args = run_command.get<std::vector<std::string>>("--");
         }
 
         // on Unix, the path needs to be prefixed with ./
@@ -290,8 +355,15 @@ int main(int argc, char* argv[]) {
 
         trace(cmd);
         system(cmd.c_str());
-
-        return 0;
+    } else if (program.is_subcommand_used("add")) {
+        auto path = add_command.get<std::string>("--path");
+        if (add_command.is_used("deps")) {
+            auto deps = add_command.get<std::vector<std::string>>("deps");
+            add_dependencies(path, deps);
+        } else {
+            error("no dependencies provided. use `qobs add -h` for help");
+            return 1;
+        }
     }
 
     return 0;

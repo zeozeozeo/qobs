@@ -73,6 +73,8 @@ public:
     inline const std::vector<Dependency>& list() const {
         return m_list;
     }
+    void add(Dependency dep);
+    bool has(std::string_view name, std::string_view value);
 
 private:
     std::vector<Dependency> m_list;
@@ -80,8 +82,8 @@ private:
 
 class Manifest {
 public:
-    Manifest(std::filesystem::path package_path) : m_package_root(package_path){};
-    Manifest(std::filesystem::path package_path, std::string name){};
+    Manifest(std::filesystem::path package_root)
+        : m_package_root(package_root){};
 
     void parse_file(std::string_view manifest_path);
     void save_to(std::filesystem::path path);
@@ -101,13 +103,13 @@ public:
     // [target]
     Target m_target;
 
+    // [dependencies]
+    Dependencies m_dependencies;
+
 private:
     // Path where the manifest is located.
     std::filesystem::path m_package_root;
 
     // Parsed TOML manifest.
     toml::table m_tbl;
-
-    // [dependencies]
-    Dependencies m_dependencies;
 };

@@ -91,7 +91,18 @@ void Dependencies::parse(toml::table deps,
     }
 }
 
-void Config::parse_file(std::string_view manifest_path) {
+void Dependencies::add(Dependency dep) {
+    m_list.push_back(dep);
+}
+
+bool Dependencies::has(std::string_view name, std::string_view value) {
+    for (auto& dep : m_list)
+        if (dep.name() == name || dep.value() == value)
+            return true;
+    return false;
+}
+
+void Manifest::parse_file(std::string_view manifest_path) {
     stopwatch sw;
     m_tbl = toml::parse_file(manifest_path);
     m_package.parse(m_tbl["package"]);
@@ -140,7 +151,7 @@ template <typename T> std::string fmt_field(std::string_view name, T&& value) {
     return str;
 }
 
-void Config::save_to(std::filesystem::path path) {
+void Manifest::save_to(std::filesystem::path path) {
     // obviously we could use the toml++ serializer all of this, but
     // it uses std::map under the hood, which stores keys lexicographically,
     // e.g. package.author comes before package.name in the saved file, which
