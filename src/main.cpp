@@ -193,15 +193,12 @@ void add_dependencies(std::filesystem::path path,
         for (;;) {
             fmt::print("Dependency name for `{}`? ", dep);
             std::getline(std::cin, name);
-            if (name.empty()) {
+            if (name.empty())
                 error("dependency name cannot be empty");
-                continue;
-            }
-            if (manifest.m_dependencies.has(name, dep)) {
+            else if (manifest.m_dependencies.has(name, dep))
                 error("dependency `{} = '{}'` already exists", name, dep);
-                continue;
-            }
-            break;
+            else
+                break;
         }
 
         manifest.m_dependencies.add({name, dep});
@@ -221,10 +218,31 @@ void validate_build_dir(std::string& build_dir) {
     }
 }
 
+level::level_enum get_level_from_name(std::string_view name) {
+    if (name == "trace")
+        return level::trace;
+    if (name == "debug")
+        return level::debug;
+    if (name == "info")
+        return level::info;
+    if (name == "warn")
+        return level::warn;
+    if (name == "error")
+        return level::err;
+    if (name == "critical")
+        return level::critical;
+    if (name == "off")
+        return level::off;
+    return level::info;
+}
+
 int main(int argc, char* argv[]) {
-    set_pattern("%^%l%$: %v");
-    set_level(level::trace);
+    set_pattern("%^%l%$: %v"); // `info: abcd` where `info` is colored green
     argparse::ArgumentParser program("qobs");
+
+    program.add_argument("-l", "--log-level")
+        .default_value("info")
+        .choices("trace", "debug", "info", "warn", "error", "critical", "off");
 
     // qobs new
     argparse::ArgumentParser new_command("new");
@@ -262,7 +280,7 @@ int main(int argc, char* argv[]) {
     // run [--help] [--version] [-cc VAR] [--build-dir VAR] [-- VAR...] path
     //                                                      ^^^^^^^^^^^
     // this should be printed **after** the `path` argument, not before it
-    // this is an argparse issue imo
+    // this seems to be an argparse issue
     run_command.add_argument("--")
         .help("All arguments after this will be passed to the program")
         .nargs(argparse::nargs_pattern::any);
@@ -297,6 +315,9 @@ int main(int argc, char* argv[]) {
         std::cout << program;
         return 0;
     }
+
+    // set logger level
+    set_level(get_level_from_name(program.get<std::string>("--log-level")));
 
     // handle subcommands
     if (program.is_subcommand_used("build")) {
