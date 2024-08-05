@@ -1,5 +1,6 @@
 #pragma once
 #include <initializer_list>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <toml++/toml.hpp>
 
@@ -29,5 +30,16 @@ int popen(std::initializer_list<std::string> args);
 
 // Will return an empty string if no compiler is found.
 std::string find_compiler(bool need_cxx);
+
+template <typename... Args>
+std::string ask(fmt::format_string<Args...> fmt, Args&&... args);
+
+// libgit2 bookkeeping: initialize library once
+// this will call `git_libgit2_init()` only once in the lifetime of the program,
+// no matter how many times this function is called
+void git_init_once();
+
+// libgit2 bookkeeping: shutdown library if it was ever initialized
+void maybe_shutdown_git();
 
 } // namespace utils

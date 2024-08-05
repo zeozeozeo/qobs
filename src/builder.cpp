@@ -10,14 +10,20 @@ std::filesystem::path Builder::build(std::shared_ptr<Generator> gen,
                                      std::optional<std::string> compiler) {
     // create build directory
     try {
-        std::filesystem::create_directory(m_manifest.package_root() / build_dir);
+        std::filesystem::create_directory(m_manifest.package_root() /
+                                          build_dir);
     } catch (const std::exception& err) {
         throw std::runtime_error(
             fmt::format("couldn't create build directory: {}", err.what()));
     }
 
+    auto build_dir_path = m_manifest.package_root() / build_dir;
+
     // find all package sources (this will glob `target.sources` wildcards)
     scan_files();
+
+    // fetch & add dependencies
+    handle_deps(build_dir_path);
 
     // generate project files
     debug("generating project files...");
@@ -42,7 +48,7 @@ std::filesystem::path Builder::build(std::shared_ptr<Generator> gen,
     trace("build.ninja:\n{}", gen->code());
 
     // write project files
-    auto build_file_path = m_manifest.package_root() / build_dir / "build.ninja";
+    auto build_file_path = build_dir_path / "build.ninja";
     std::fstream file(build_file_path, std::ios::out);
     file << gen->code();
     file.close();
@@ -51,7 +57,7 @@ std::filesystem::path Builder::build(std::shared_ptr<Generator> gen,
     gen->invoke(build_file_path);
 
     // return path to built file
-    return m_manifest.package_root() / build_dir / exe_name;
+    return build_dir_path / exe_name;
 }
 
 void Builder::scan_files() {
@@ -77,4 +83,11 @@ void Builder::scan_files() {
         }
     }
     debug("queued {} file(s) for building", m_files.size());
+}
+
+void Builder::handle_deps(const std::filesystem::path& build_dir_path) {
+    auto deps_path = build_dir_path / "_deps";
+    for (auto& dep : m_manifest.m_dependencies.m_list) {
+        dep.fetch_and_get_path(deps_path / (dep.name() + "-src"));
+    }
 }

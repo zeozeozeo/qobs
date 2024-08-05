@@ -2,7 +2,8 @@
 
 #include "utils.hpp"
 #include <filesystem>
-#include <spdlog/spdlog.h>
+#include <git2.h>
+#include <iostream>
 #include <subprocess.h>
 
 using namespace spdlog;
@@ -128,6 +129,32 @@ std::string find_compiler(bool need_cxx) {
         }
     }
     return "";
+}
+
+template <typename... Args>
+std::string ask(fmt::format_string<Args...> fmt, Args&&... args) {
+    std::string answer;
+    while (answer.empty()) {
+        fmt::print(fmt, std::forward<Args>(args)...);
+        std::getline(std::cin, answer);
+    }
+    return answer;
+}
+
+std::once_flag git_init_flag;
+std::atomic_bool git_initialized = false;
+
+void git_init_once() {
+    std::call_once(git_init_flag, []() {
+        trace("initializing libgit2");
+        git_libgit2_init();
+        git_initialized = true;
+    });
+}
+
+void maybe_shutdown_git() {
+    if (git_initialized)
+        git_libgit2_shutdown();
 }
 
 } // namespace utils

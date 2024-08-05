@@ -185,8 +185,9 @@ void Manifest::save_to(std::filesystem::path path) {
 
     // [dependencies]
     file << "\n[dependencies]\n";
-    for (auto& dep : m_dependencies.list()) {
+    for (auto& dep : m_dependencies.m_list) {
         switch (dep.type()) {
+        case DependencyType::git:
         case DependencyType::url:
             file << fmt_field(dep.name(), dep.value()) << "\n";
             break;

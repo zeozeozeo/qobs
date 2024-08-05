@@ -40,7 +40,6 @@ void NinjaGenerator::generate(const Manifest& manifest,
     // write rules
     writeln("\n# rules");
     writeln("rule cc");
-    // writeln("  deps = gcc");
     writeln("  command = $cc $cflags -c $in -o $out");
     writeln("  description = CC $out");
 
@@ -77,7 +76,6 @@ void NinjaGenerator::generate(const Manifest& manifest,
 
     // set variables for link
     writeln();
-    // writeln(fmt::format("  TARGET_FILE = {}", exe_name));
 }
 
 void NinjaGenerator::invoke(std::filesystem::path path) {

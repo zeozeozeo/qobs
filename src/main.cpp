@@ -236,7 +236,13 @@ level::level_enum get_level_from_name(std::string_view name) {
     return level::info;
 }
 
+void atexit_handler() {
+    // libgit2 bookkeeping
+    utils::maybe_shutdown_git();
+}
+
 int main(int argc, char* argv[]) {
+    std::atexit(atexit_handler);
     set_pattern("%^%l%$: %v"); // `info: abcd` where `info` is colored green
     argparse::ArgumentParser program("qobs");
 

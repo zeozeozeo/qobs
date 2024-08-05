@@ -3,16 +3,17 @@
 #include <toml++/toml.hpp>
 
 enum class DependencyType {
-    // supports URLs and git remotes:
+    // supports git remotes:
     // `gh:nlohmann/json`
     // `gh:nlohmann/json#960b763`
     // `gh:nlohmann/json@3.11.3`
     // `https://github.com/nlohmann/json`
     // `https://github.com/nlohmann/json.git#960b763`
-    // `https://example.com/my-package.zip`
     //
     // all shortcuts: `gh:` for GitHub, `gl:` for GitLab, `bb:` for BitBucket,
     // `sr:` for sourcehut, `cb:` for Codeberg.
+    git,
+    // `https://example.com/my-package.zip`
     url,
     // `dep = { path = "/path/to/dep" }`
     path,
@@ -35,6 +36,10 @@ public:
     // this constructor can throw!
     Dependency(std::string name, toml::table dep,
                const std::filesystem::path& package_root);
+
+    // throws!
+    std::filesystem::path
+    fetch_and_get_path(const std::filesystem::path& deps_dir);
 
     // `dep` in `dep = "gh:nlohmann/json"`
     inline std::string name() const {
@@ -68,6 +73,9 @@ public:
     }
 
 private:
+    // throws!
+    void clone_git_repo(const std::filesystem::path& deps_dir);
+
     // `dep` in `dep = "gh:nlohmann/json"`
     std::string m_name;
 

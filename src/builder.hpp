@@ -19,6 +19,8 @@ public:
 
 private:
     void scan_files();
+    void handle_deps(const std::filesystem::path& build_dir_path);
+    
     Manifest m_manifest;
     std::vector<BuildFile> m_files;
 };

@@ -70,13 +70,9 @@ public:
     Dependencies(){};
     void parse(toml::table deps, const std::filesystem::path& package_root);
 
-    inline const std::vector<Dependency>& list() const {
-        return m_list;
-    }
     void add(Dependency dep);
     bool has(std::string_view name, std::string_view value);
 
-private:
     std::vector<Dependency> m_list;
 };
 

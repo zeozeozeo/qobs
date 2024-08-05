@@ -2,7 +2,10 @@
 #include "utils.hpp"
 #include <filesystem>
 #include <fmt/core.h>
+#include <git2.h>
 #include <map>
+
+using namespace spdlog;
 
 static const std::map<std::string, std::string> SHORTCUTS{
     {"gh:", "https://github.com/"},    {"gl:", "https://gitlab.com/"},
@@ -14,7 +17,7 @@ Dependency::Dependency(std::string name, std::string value) {
     m_name = name;
     m_value = value;
 
-    // dep = "anything/goes" will always be a url,
+    // dep = "anything/goes" will always be a url or git remote,
     // dep = { path = "/path/to/dep" } is how you specify a path
     m_type = DependencyType::url;
 
@@ -22,12 +25,15 @@ Dependency::Dependency(std::string name, std::string value) {
     {
         auto hash_pos = value.rfind('#');
         auto tag_pos = value.rfind('@');
+
         if (hash_pos != std::string::npos) {
+            m_type = DependencyType::git;
             m_version = value.substr(hash_pos + 1);
             m_expanded = value.substr(0, hash_pos);
             if (!m_version.empty())
                 m_version_type = VersionType::commit_hash;
         } else if (tag_pos != std::string::npos) {
+            m_type = DependencyType::git;
             m_version = value.substr(tag_pos + 1);
             m_expanded = value.substr(0, tag_pos);
             if (!m_version.empty())
@@ -42,7 +48,7 @@ Dependency::Dependency(std::string name, std::string value) {
     // (e.g. `gh:nlohmann/json` -> `https://github.com/nlohmann/json`):
     for (auto&& [k, v] : SHORTCUTS) {
         if (m_expanded.starts_with(k)) {
-            m_type = DependencyType::url;
+            m_type = DependencyType::git; // shortcut to git remote
 
             // sr.ht users start with ~, add it if not provided already
             if (k == "sr:" && !m_expanded.starts_with("sr:~"))
@@ -52,6 +58,8 @@ Dependency::Dependency(std::string name, std::string value) {
             break;
         }
     }
+
+    // m_type could be DependencyType::git OR DependencyType::url by now
 
     if (m_expanded.empty())
         m_expanded = value;
@@ -84,4 +92,83 @@ Dependency::Dependency(std::string name, toml::table dep,
             throw std::runtime_error(fmt::format("unrecognized key `{}`", key));
         }
     }
+}
+
+struct progress_data {
+    git_indexer_progress fetch_progress;
+    size_t completed_steps;
+    size_t total_steps;
+    const char* path;
+};
+
+static int sideband_progress(const char* str, int len, void* payload) {
+    (void)payload; // unused
+    printf("remote: %.*s", len, str);
+    fflush(stdout);
+    return 0;
+}
+
+static int fetch_progress(const git_indexer_progress* stats, void* payload) {
+    auto pd = static_cast<progress_data*>(payload);
+    pd->fetch_progress = *stats;
+    // TODO: print_progress(pd);
+    return 0;
+}
+
+void checkout_progress(const char* path, size_t cur, size_t tot,
+                       void* payload) {
+    auto pd = static_cast<progress_data*>(payload);
+    pd->completed_steps = cur;
+    pd->total_steps = tot;
+    pd->path = path;
+    // TODO
+}
+
+void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
+    progress_data pd{};
+    git_repository* cloned_repo = nullptr;
+    git_clone_options clone_opts = GIT_CLONE_OPTIONS_INIT;
+    git_checkout_options checkout_opts = GIT_CHECKOUT_OPTIONS_INIT;
+
+    auto url = m_expanded.c_str();
+    auto path_str = dep_path.string();
+
+    // set up options
+    checkout_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
+    checkout_opts.progress_cb = checkout_progress;
+    checkout_opts.progress_payload = &pd;
+    clone_opts.checkout_opts = checkout_opts;
+    clone_opts.fetch_opts.callbacks.sideband_progress = sideband_progress;
+    clone_opts.fetch_opts.callbacks.transfer_progress = &fetch_progress;
+    // clone_opts.fetch_opts.callbacks.credentials = cred_acquire_cb;
+    clone_opts.fetch_opts.callbacks.payload = &pd;
+
+    // do the clone
+    utils::git_init_once();
+    debug("cloning repo `{}` to `{}`", m_expanded, path_str);
+    int error = git_clone(&cloned_repo, url, path_str.c_str(), &clone_opts);
+    if (error != 0) {
+        const git_error* err = git_error_last();
+        if (err)
+            throw std::runtime_error(
+                fmt::format("error {}: {}", err->klass, err->message));
+        else
+            throw std::runtime_error(
+                fmt::format("error {}: no detailed info", error));
+    } else if (cloned_repo)
+        git_repository_free(cloned_repo);
+}
+
+std::filesystem::path
+Dependency::fetch_and_get_path(const std::filesystem::path& dep_path) {
+    switch (m_type) {
+    case DependencyType::git:
+        clone_git_repo(dep_path);
+        break;
+    case DependencyType::url:
+    case DependencyType::path:
+        return m_value;
+    }
+
+    return {};
 }
