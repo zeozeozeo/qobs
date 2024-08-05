@@ -147,8 +147,13 @@ std::atomic_bool git_initialized = false;
 void git_init_once() {
     std::call_once(git_init_flag, []() {
         trace("initializing libgit2");
-        git_libgit2_init();
-        git_initialized = true;
+        int result = git_libgit2_init();
+        if (result < 0)
+            critical("failed to initialize libgit2 (code {})", result);
+        else {
+            trace("libgit2 initialized ({} initialization(s))", result);
+            git_initialized = true;
+        }
     });
 }
 
