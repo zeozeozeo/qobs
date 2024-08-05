@@ -1,6 +1,6 @@
 #pragma once
-#include "manifest.hpp"
 #include "generators/generator.hpp"
+#include "manifest.hpp"
 
 class Builder {
 public:
@@ -10,17 +10,17 @@ public:
     std::filesystem::path build(std::shared_ptr<Generator> gen,
                                 std::string_view build_dir,
                                 std::optional<std::string> compiler);
-    Manifest& manifest() {
+    inline const Manifest& manifest() {
         return m_manifest;
     }
-    const std::vector<BuildFile>& files() const {
+    inline const std::vector<BuildFile>& files() const {
         return m_files;
     }
 
 private:
     void scan_files();
     void handle_deps(const std::filesystem::path& build_dir_path);
-    
+
     Manifest m_manifest;
     std::vector<BuildFile> m_files;
 };

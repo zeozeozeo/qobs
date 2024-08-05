@@ -101,13 +101,13 @@ std::string find_compiler(bool need_cxx) {
     const char* cc = std::getenv("CC");
     const char* cxx = std::getenv("CC");
 
-    if (cc && cxx) {
+    if (cc && cxx)
         return need_cxx ? cxx : cc;
-    } else if (cc) {
+    else if (cc)
         return cc;
-    } else if (cxx) {
+    else if (cxx)
         return cxx;
-    } else {
+    else {
         // CC/CXX envvar not set, search in PATH
         for (const auto& compiler :
              need_cxx ? COMMON_CXX_COMPILERS : COMMON_C_COMPILERS) {
