@@ -138,18 +138,18 @@ static int sideband_progress(const char* str, int len, void* payload) {
 }
 
 static int fetch_progress(const git_indexer_progress* stats, void* payload) {
-    auto pd = static_cast<SequentialProgress*>(payload);
+    auto sp = static_cast<SequentialProgress*>(payload);
     auto progress = static_cast<double>(stats->received_objects) /
                     static_cast<double>(stats->total_objects);
-    pd->update_progress(progress);
+    sp->update_progress(progress);
     return 0;
 }
 
 void checkout_progress(const char* path, size_t cur, size_t tot,
                        void* payload) {
-    auto pd = static_cast<SequentialProgress*>(payload);
+    auto sp = static_cast<SequentialProgress*>(payload);
     auto progress = static_cast<double>(cur) / static_cast<double>(tot);
-    pd->update_progress(progress);
+    sp->update_progress(progress);
 }
 
 void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
@@ -165,9 +165,9 @@ void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
         option::ShowRemainingTime{true},
         option::FontStyles{std::vector<FontStyle>{FontStyle::bold}});
 
-    SequentialProgress pd;
-    pd.add_bar(std::move(fetch_bar));
-    pd.add_bar(std::move(checkout_bar));
+    SequentialProgress sp;
+    sp.add_bar(std::move(fetch_bar));
+    sp.add_bar(std::move(checkout_bar));
 
     git_repository* cloned_repo = nullptr;
     git_clone_options clone_opts = GIT_CLONE_OPTIONS_INIT;
@@ -179,12 +179,12 @@ void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
     // set up options
     checkout_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
     checkout_opts.progress_cb = checkout_progress;
-    checkout_opts.progress_payload = &pd;
+    checkout_opts.progress_payload = &sp;
     clone_opts.checkout_opts = checkout_opts;
     clone_opts.fetch_opts.callbacks.sideband_progress = sideband_progress;
     clone_opts.fetch_opts.callbacks.transfer_progress = &fetch_progress;
-    //  TODO: clone_opts.fetch_opts.callbacks.credentials = cred_acquire_cb;
-    clone_opts.fetch_opts.callbacks.payload = &pd;
+    // TODO: clone_opts.fetch_opts.callbacks.credentials = cred_acquire_cb;
+    clone_opts.fetch_opts.callbacks.payload = &sp;
 
     // do the clone
     utils::git_init_once();
