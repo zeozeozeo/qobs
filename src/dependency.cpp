@@ -48,6 +48,14 @@ Dependency::Dependency(std::string name, std::string value) {
     if (m_expanded.empty())
         m_expanded = value;
 
+    // remove unnecessary slashes at end of url
+    while (!m_expanded.empty() && m_expanded.back() == '/')
+        m_expanded.pop_back();
+
+    // if it ends with .git, it's a git remote
+    if (m_expanded.ends_with(".git"))
+        m_type = DependencyType::git;
+
     // expand shortcuts
     // (e.g. `gh:nlohmann/json` -> `https://github.com/nlohmann/json`):
     for (auto&& [k, v] : SHORTCUTS) {
