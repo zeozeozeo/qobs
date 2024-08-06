@@ -88,6 +88,7 @@ void Builder::scan_files() {
 void Builder::handle_deps(const std::filesystem::path& build_dir_path) {
     auto deps_path = build_dir_path / "_deps";
     for (auto& dep : m_manifest.m_dependencies.m_list) {
-        dep.fetch_and_get_path(deps_path / (dep.name() + "-src"));
+        dep.fetch_and_get_path(deps_path);
+        
     }
 }

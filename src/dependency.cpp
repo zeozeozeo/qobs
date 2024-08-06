@@ -1,11 +1,15 @@
 #include "dependency.hpp"
 #include "utils.hpp"
+#include <deque>
 #include <filesystem>
 #include <fmt/core.h>
 #include <git2.h>
+#include <indicators/dynamic_progress.hpp>
+#include <indicators/progress_bar.hpp>
 #include <map>
 
 using namespace spdlog;
+using namespace indicators;
 
 static const std::map<std::string, std::string> SHORTCUTS{
     {"gh:", "https://github.com/"},    {"gl:", "https://gitlab.com/"},
@@ -94,38 +98,77 @@ Dependency::Dependency(std::string name, toml::table dep,
     }
 }
 
-struct progress_data {
-    git_indexer_progress fetch_progress;
-    size_t completed_steps;
-    size_t total_steps;
-    const char* path;
+class SequentialProgress {
+public:
+    SequentialProgress() {}
+
+    void add_bar(std::unique_ptr<ProgressBar> bar) {
+#ifdef QOBS_IS_WINDOWS
+        // see https://github.com/p-ranav/indicators/issues/131
+        utils::ensure_virtual_terminal_processing();
+#endif
+        m_bars.push_back(std::move(bar));
+    }
+
+    void update_progress(double progress) {
+        if (m_bars.empty())
+            return;
+        auto bar = m_bars[0].get();
+        if (bar->is_completed() && progress != 1.L) {
+            m_bars.pop_front();
+            if (m_bars.empty())
+                return;
+            bar = m_bars[0].get();
+        }
+
+        auto progress_i = static_cast<size_t>(progress * 100.L);
+        if (bar->current() != progress_i)
+            bar->set_progress(progress_i);
+    }
+
+private:
+    std::deque<std::unique_ptr<ProgressBar>> m_bars{};
 };
 
 static int sideband_progress(const char* str, int len, void* payload) {
     (void)payload; // unused
-    printf("remote: %.*s", len, str);
-    fflush(stdout);
+    printf("  remote: %.*s", len, str);
+    std::flush(std::cout);
     return 0;
 }
 
 static int fetch_progress(const git_indexer_progress* stats, void* payload) {
-    auto pd = static_cast<progress_data*>(payload);
-    pd->fetch_progress = *stats;
-    // TODO: print_progress(pd);
+    auto pd = static_cast<SequentialProgress*>(payload);
+    auto progress = static_cast<double>(stats->received_objects) /
+                    static_cast<double>(stats->total_objects);
+    pd->update_progress(progress);
     return 0;
 }
 
 void checkout_progress(const char* path, size_t cur, size_t tot,
                        void* payload) {
-    auto pd = static_cast<progress_data*>(payload);
-    pd->completed_steps = cur;
-    pd->total_steps = tot;
-    pd->path = path;
-    // TODO
+    auto pd = static_cast<SequentialProgress*>(payload);
+    auto progress = static_cast<double>(cur) / static_cast<double>(tot);
+    pd->update_progress(progress);
 }
 
 void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
-    progress_data pd{};
+    // setup progressbars
+    auto fetch_bar = std::make_unique<ProgressBar>(
+        option::BarWidth{50}, option::PrefixText{"  fetching "},
+        option::ForegroundColor{Color::green}, option::ShowElapsedTime{true},
+        option::ShowRemainingTime{true},
+        option::FontStyles{std::vector<FontStyle>{FontStyle::bold}});
+    auto checkout_bar = std::make_unique<ProgressBar>(
+        option::BarWidth{50}, option::PrefixText{"  checkout "},
+        option::ForegroundColor{Color::yellow}, option::ShowElapsedTime{true},
+        option::ShowRemainingTime{true},
+        option::FontStyles{std::vector<FontStyle>{FontStyle::bold}});
+
+    SequentialProgress pd;
+    pd.add_bar(std::move(fetch_bar));
+    pd.add_bar(std::move(checkout_bar));
+
     git_repository* cloned_repo = nullptr;
     git_clone_options clone_opts = GIT_CLONE_OPTIONS_INIT;
     git_checkout_options checkout_opts = GIT_CHECKOUT_OPTIONS_INIT;
@@ -140,12 +183,12 @@ void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
     clone_opts.checkout_opts = checkout_opts;
     clone_opts.fetch_opts.callbacks.sideband_progress = sideband_progress;
     clone_opts.fetch_opts.callbacks.transfer_progress = &fetch_progress;
-    // clone_opts.fetch_opts.callbacks.credentials = cred_acquire_cb;
+    //  TODO: clone_opts.fetch_opts.callbacks.credentials = cred_acquire_cb;
     clone_opts.fetch_opts.callbacks.payload = &pd;
 
     // do the clone
     utils::git_init_once();
-    debug("cloning repo `{}` to `{}`", m_expanded, path_str);
+    info("cloning {}", m_expanded);
     int error = git_clone(&cloned_repo, url, path_str.c_str(), &clone_opts);
     if (error != 0) {
         const git_error* err = git_error_last();
@@ -160,13 +203,14 @@ void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
 }
 
 std::filesystem::path
-Dependency::fetch_and_get_path(const std::filesystem::path& dep_path) {
+Dependency::fetch_and_get_path(const std::filesystem::path& deps_dir) {
     switch (m_type) {
     case DependencyType::git:
-        clone_git_repo(dep_path);
+        clone_git_repo(deps_dir / (m_name + "-src"));
         break;
     case DependencyType::url:
     case DependencyType::path:
+        // we don't need to copy or fetch anything, path is already given
         return m_value;
     }
 

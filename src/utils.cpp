@@ -1,6 +1,11 @@
-#define _CRT_SECURE_NO_WARNINGS
-
 #include "utils.hpp"
+
+#ifdef QOBS_IS_WINDOWS
+#define _CRT_SECURE_NO_WARNINGS
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #include <filesystem>
 #include <git2.h>
 #include <iostream>
@@ -161,5 +166,25 @@ void maybe_shutdown_git() {
     if (git_initialized)
         git_libgit2_shutdown();
 }
+
+#ifdef QOBS_IS_WINDOWS
+std::once_flag ensure_virtual_terminal_processing_flag;
+
+void ensure_virtual_terminal_processing() {
+    std::call_once(ensure_virtual_terminal_processing_flag, []() {
+        HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (hOut != INVALID_HANDLE_VALUE) {
+            DWORD dwOriginalOutMode = 0;
+            GetConsoleMode(hOut, &dwOriginalOutMode);
+
+            // request ANSI escape code processing
+            DWORD dwRequestedOutModes =
+                dwOriginalOutMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            if (!SetConsoleMode(hOut, dwRequestedOutModes))
+                SetConsoleMode(hOut, dwOriginalOutMode);
+        }
+    });
+}
+#endif
 
 } // namespace utils

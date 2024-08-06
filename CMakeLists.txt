@@ -23,6 +23,7 @@ CPMAddPackage("gh:fmtlib/fmt#ffdc3fdbd90385429dd2ea6a774848e39d4f957a")
 CPMAddPackage("gh:marzer/tomlplusplus#e2bae9d559b4956a831fcef10ac8f01c88cb0d13")
 CPMAddPackage("gh:gabime/spdlog#5ebfc927306fd7ce551fa22244be801cf2b9fdd9")
 CPMAddPackage("gh:p-ranav/glob#d025092c0e1eb1a8b226d3a799fd32680d2fd13f")
+CPMAddPackage("gh:p-ranav/indicators#9c855c95e7782541a419597242535562fa9e41d7")
 CPMAddPackage(
     NAME LIBGIT2
     GITHUB_REPOSITORY libgit2/libgit2
@@ -39,4 +40,5 @@ target_link_libraries(${PROJECT_NAME}
                       argparse
                       tomlplusplus::tomlplusplus
                       Glob
-                      libgit2package)
+                      libgit2package
+                      indicators::indicators)

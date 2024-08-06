@@ -42,4 +42,8 @@ void git_init_once();
 // libgit2 bookkeeping: shutdown library if it was ever initialized
 void maybe_shutdown_git();
 
+#ifdef QOBS_IS_WINDOWS
+void ensure_virtual_terminal_processing();
+#endif
+
 } // namespace utils
