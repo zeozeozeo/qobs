@@ -74,7 +74,8 @@ public:
 
 private:
     // throws!
-    void clone_git_repo(const std::filesystem::path& deps_dir);
+    void clone_git_repo(const std::filesystem::path& dep_path);
+    void fetch_url(const std::filesystem::path& download_path);
 
     // `dep` in `dep = "gh:nlohmann/json"`
     std::string m_name;

@@ -98,10 +98,17 @@ Dependency::Dependency(std::string name, toml::table dep,
     }
 }
 
+// Kinda like DynamicProgress from the `indicators` library, but doesn't hog
+// performance when running in Windows cmd. Handles sequencing of multiple
+// progressbars, update granularity and forces Windows to process ANSI escape
+// codes.
 class SequentialProgress {
 public:
     SequentialProgress() {}
 
+    // Sequence a progressbar. It will only start once all progressbars before
+    // it have completed, and after that `update_progress` will update this
+    // sequenced progressbar.
     void add_bar(std::unique_ptr<ProgressBar> bar) {
 #ifdef QOBS_IS_WINDOWS
         // see https://github.com/p-ranav/indicators/issues/131
@@ -110,6 +117,8 @@ public:
         m_bars.push_back(std::move(bar));
     }
 
+    // Update progress of the current progressbar in the sequence. Does nothing
+    // if the sequence is empty/becomes empty.
     void update_progress(double progress) {
         if (m_bars.empty())
             return;
@@ -149,6 +158,9 @@ void checkout_progress(const char* path, size_t cur, size_t tot,
                        void* payload) {
     auto sp = static_cast<SequentialProgress*>(payload);
     auto progress = static_cast<double>(cur) / static_cast<double>(tot);
+
+    // technically this should only run after `fetch_progress` is done, so this
+    // will update the second progressbar
     sp->update_progress(progress);
 }
 
@@ -165,6 +177,7 @@ void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
         option::ShowRemainingTime{true},
         option::FontStyles{std::vector<FontStyle>{FontStyle::bold}});
 
+    // sequence 2 progressbars:
     SequentialProgress sp;
     sp.add_bar(std::move(fetch_bar));
     sp.add_bar(std::move(checkout_bar));
@@ -187,7 +200,7 @@ void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
     clone_opts.fetch_opts.callbacks.payload = &sp;
 
     // do the clone
-    utils::git_init_once();
+    utils::git_init_once(); // make sure libgit2 is initialized
     info("cloning {}", m_expanded);
     int error = git_clone(&cloned_repo, url, path_str.c_str(), &clone_opts);
     if (error != 0) {
@@ -202,17 +215,23 @@ void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
         git_repository_free(cloned_repo);
 }
 
+void fetch_url(const std::filesystem::path& download_path) {
+    assert(false && "unimplemented");
+}
+
 std::filesystem::path
 Dependency::fetch_and_get_path(const std::filesystem::path& deps_dir) {
+    auto download_path = deps_dir / (m_name + "-src");
+
     switch (m_type) {
     case DependencyType::git:
-        clone_git_repo(deps_dir / (m_name + "-src"));
-        break;
+        clone_git_repo(download_path);
+        return download_path;
     case DependencyType::url:
+        fetch_url(download_path);
+        return download_path;
     case DependencyType::path:
         // we don't need to copy or fetch anything, path is already given
         return m_value;
     }
-
-    return {};
 }
