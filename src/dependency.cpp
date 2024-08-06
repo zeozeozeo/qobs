@@ -215,7 +215,7 @@ void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
         git_repository_free(cloned_repo);
 }
 
-void fetch_url(const std::filesystem::path& download_path) {
+void Dependency::fetch_url(const std::filesystem::path& download_path) {
     assert(false && "unimplemented");
 }
 

@@ -1,7 +1,8 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "utils.hpp"
 
 #ifdef QOBS_IS_WINDOWS
-#define _CRT_SECURE_NO_WARNINGS
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -186,5 +187,30 @@ void ensure_virtual_terminal_processing() {
     });
 }
 #endif
+
+void check_lg2(int error, std::string_view message) {
+    const git_error* lg2error;
+    const char *msg = "", *spacer = "";
+
+    if (!error)
+        return;
+
+    if ((lg2error = git_error_last()) != nullptr &&
+        lg2error->message != nullptr) {
+        msg = lg2error->message;
+        spacer = " - ";
+    }
+
+    throw std::runtime_error(
+        fmt::format("{} [{}]{}{}", message, error, spacer, msg));
+}
+
+void init_git_repo(const std::string& path) {
+    git_init_once();
+
+    git_repository* repo = nullptr;
+    check_lg2(git_repository_init(&repo, path.c_str(), 0),
+              "could not initialize repository");
+}
 
 } // namespace utils

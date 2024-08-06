@@ -46,4 +46,6 @@ void maybe_shutdown_git();
 void ensure_virtual_terminal_processing();
 #endif
 
+void init_git_repo(const std::string& path);
+
 } // namespace utils

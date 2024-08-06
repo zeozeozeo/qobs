@@ -131,13 +131,22 @@ void new_package(std::string name) {
     }
 
     // use C++ (y/n)?
+    auto is_yes = [](std::string str, bool default_ans = true) {
+        utils::trim_in_place(str);
+        return str == "y" || str == "Y" || str == "1" ||
+               (str.empty() && default_ans);
+    };
     fmt::print("Use C++ (y/n)? ");
     std::string use_cpp;
     std::getline(std::cin, use_cpp);
-    utils::trim_in_place(use_cpp);
-    bool cxx =
-        use_cpp == "y" || use_cpp == "Y" || use_cpp == "1" || use_cpp.empty();
+    bool cxx = is_yes(use_cpp);
     manifest.m_target.m_cxx = cxx;
+
+    // initialize git repo (y/n)?
+    fmt::print("Initialize git repo (y/n)? ");
+    std::string init_git;
+    std::getline(std::cin, init_git);
+    bool init_git_repo = is_yes(init_git);
 
     // scaffold package directory
     auto scaffold_path = path;
@@ -172,6 +181,15 @@ void new_package(std::string name) {
     } catch (const std::exception& err) {
         error("couldn't create `{}`: {}", scaffold_path.string(), err.what());
         return;
+    }
+
+    // initialize git repo
+    try {
+        if (init_git_repo)
+            utils::init_git_repo(path.string());
+    } catch (const std::exception& err) {
+        error("couldn't initialize git repo in `{}`: {}", path.string(),
+              err.what());
     }
 
     info("created {} package `{}` in `{}`", cxx ? "C++" : "C", name,
