@@ -2,6 +2,9 @@
 #include "utils.hpp"
 #include <spdlog/spdlog.h>
 #include <spdlog/stopwatch.h>
+#include <string>
+#include <vector>
+#include <sstream> // Required for std::stringstream
 
 using namespace spdlog;
 
@@ -34,6 +37,58 @@ void Package::parse(toml::node_view<toml::node> package) {
             m_authors.push_back(author.as_string()->get());
         });
     }
+
+    // Parse package type
+    if (auto type_node = package["type"]) {
+        if (type_node.is_string()) {
+            std::string type_val = type_node.as_string()->get();
+            if (type_val == "app" || type_val == "lib") {
+                m_type = type_val;
+            } else {
+                warn("`package.type` has invalid value `{}`, expected \"app\" or "
+                     "\"lib\". Defaulting to \"app\".",
+                     type_val);
+                m_type = "app"; // Default
+            }
+        } else {
+            warn("`package.type` is of type `{}`, expected `string`. Defaulting to "
+                 "\"app\".",
+                 utils::toml_type_to_str(type_node.type()));
+            m_type = "app"; // Default
+        }
+    } else {
+        m_type = "app"; // Default if not present
+    }
+
+    // Parse public_include_dirs
+    if (auto dirs_node = package["public_include_dirs"]) {
+        if (m_type == "lib") {
+            if (dirs_node.is_array()) {
+                dirs_node.as_array()->for_each(
+                    [this](size_t i, auto& dir_node) {
+                        if (warn_if_not_string_and_return_true(
+                                "`package.public_include_dirs` element",
+                                fmt::format("at index {}", i), dir_node.type()))
+                            return;
+                        m_public_include_dirs.push_back(
+                            dir_node.as_string()->get());
+                    });
+            } else {
+                warn("`package.public_include_dirs` is of type `{}`, expected "
+                     "`array` of strings for library packages.",
+                     utils::toml_type_to_str(dirs_node.type()));
+            }
+        } else { // m_type == "app"
+            // Check if it's an array and not empty, or if it's not an array but simply present
+            bool is_non_empty_array = dirs_node.is_array() && !dirs_node.as_array()->empty();
+            bool is_present_non_array = !dirs_node.is_array(); // any other type is not expected for an app
+
+            if (is_non_empty_array || is_present_non_array) {
+                 warn("`package.public_include_dirs` is specified for an application "
+                     "package (`{}`), but it's only used for library packages. This field will be ignored.", m_name);
+            }
+        }
+    }
 }
 
 void Package::add_author(std::string author) {
@@ -53,6 +108,8 @@ void Target::parse(toml::node_view<toml::node> target) {
     m_glob_recurse = target["glob_recurse"].value_or(false);
     m_cflags = target["cflags"].value_or("");
     m_ldflags = target["ldflags"].value_or("");
+    m_public_cflags = target["public_cflags"].value_or(""); // Parse public_cflags
+    m_public_ldflags = target["public_ldflags"].value_or(""); // Parse public_ldflags
     m_cxx = target["cxx"].value_or(false);
 }
 
@@ -165,9 +222,16 @@ void Manifest::save_to(std::filesystem::path path) {
     if (!m_package.description().empty()) {
         file << fmt_field("description", m_package.description()) << "\n";
     }
+    if (m_package.type() == "lib") { // Only write type if it's "lib"
+        file << fmt_field("type", m_package.type()) << "\n";
+    }
     if (!m_package.authors().empty()) {
         file << "authors = " << fmt_vector(m_package.authors()) << "\n";
     }
+    if (m_package.type() == "lib" && !m_package.public_include_dirs().empty()) {
+        file << "public_include_dirs = " << fmt_vector(m_package.public_include_dirs()) << "\n";
+    }
+
 
     // [target]
     file << "\n[target]\n";
@@ -180,6 +244,12 @@ void Manifest::save_to(std::filesystem::path path) {
     }
     if (!m_target.ldflags().empty()) {
         file << fmt_field("ldflags", m_target.ldflags()) << "\n";
+    }
+    if (!m_target.public_cflags().empty()) { // Serialize public_cflags
+        file << fmt_field("public_cflags", m_target.public_cflags()) << "\n";
+    }
+    if (!m_target.public_ldflags().empty()) { // Serialize public_ldflags
+        file << fmt_field("public_ldflags", m_target.public_ldflags()) << "\n";
     }
     file << fmt_field("cxx", m_target.m_cxx) << "\n";
 

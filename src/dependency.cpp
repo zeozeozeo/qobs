@@ -2,6 +2,10 @@
 #include "utils.hpp"
 #include <deque>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <cstdlib> // For system() if needed, though utils::popen is preferred
 #include <fmt/core.h>
 #include <git2.h>
 #include <indicators/dynamic_progress.hpp>
@@ -224,7 +228,64 @@ void Dependency::clone_git_repo(const std::filesystem::path& dep_path) {
 }
 
 void Dependency::fetch_url(const std::filesystem::path& download_path) {
-    assert(false && "unimplemented");
+    // Create a temporary directory for downloading the archive
+    std::filesystem::path temp_dir = std::filesystem::temp_directory_path() / "qobs_download";
+    std::filesystem::create_directories(temp_dir);
+
+    std::string url = m_expanded;
+    std::string archive_name = url.substr(url.rfind('/') + 1);
+    std::filesystem::path archive_path = temp_dir / archive_name;
+
+    // Download the file using curl
+    info("downloading {}", url);
+    std::string curl_cmd = fmt::format("curl -L -o {} {}", archive_path.string(), url);
+    
+    // Use a lambda to capture output for logging, if utils::popen allows for it.
+    // For now, assuming utils::popen handles output or we check its return status.
+    // TODO: Enhance utils::popen or use a more robust process execution method
+    //       that allows capturing stdout/stderr for better error reporting.
+    std::string output; // To store output from popen
+    int curl_status = utils::popen(curl_cmd.c_str(), output);
+
+    if (curl_status != 0) {
+        std::filesystem::remove_all(temp_dir);
+        throw std::runtime_error(fmt::format("failed to download {}: curl exited with status {}. Output:\n{}", url, curl_status, output));
+    }
+
+    // Ensure the target download_path exists
+    if (!std::filesystem::exists(download_path)) {
+        std::filesystem::create_directories(download_path);
+    }
+
+    // Extract the archive
+    info("extracting {} to {}", archive_path.string(), download_path.string());
+    std::string extract_cmd;
+    if (archive_name.ends_with(".zip")) {
+        extract_cmd = fmt::format("unzip -q {} -d {}", archive_path.string(), download_path.string());
+    } else if (archive_name.ends_with(".tar.gz") || archive_name.ends_with(".tgz")) {
+        extract_cmd = fmt::format("tar -xzf {} -C {}", archive_path.string(), download_path.string());
+    } else if (archive_name.ends_with(".tar.bz2") || archive_name.ends_with(".tbz2")) {
+        extract_cmd = fmt::format("tar -xjf {} -C {}", archive_path.string(), download_path.string());
+    } else if (archive_name.ends_with(".tar.xz") || archive_name.ends_with(".txz")) {
+        extract_cmd = fmt::format("tar -xJf {} -C {}", archive_path.string(), download_path.string());
+    } else if (archive_name.ends_with(".tar")) {
+        extract_cmd = fmt::format("tar -xf {} -C {}", archive_path.string(), download_path.string());
+    } else {
+        std::filesystem::remove_all(temp_dir);
+        throw std::runtime_error(fmt::format("unsupported archive type: {}", archive_name));
+    }
+
+    output.clear(); // Clear output for the next command
+    int extract_status = utils::popen(extract_cmd.c_str(), output);
+
+    if (extract_status != 0) {
+        std::filesystem::remove_all(temp_dir);
+        throw std::runtime_error(fmt::format("failed to extract {}: command exited with status {}. Output:\n{}", archive_name, extract_status, output));
+    }
+
+    // Clean up: remove the temporary directory and its contents
+    std::filesystem::remove_all(temp_dir);
+    info("successfully fetched and extracted {}", url);
 }
 
 std::filesystem::path

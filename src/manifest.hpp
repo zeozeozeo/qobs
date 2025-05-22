@@ -1,6 +1,8 @@
 #pragma once
 #include "dependency.hpp"
 #include <filesystem>
+#include <string> // Required for std::string
+#include <vector> // Required for std::vector
 #include <toml++/toml.hpp>
 
 // [package]
@@ -18,6 +20,12 @@ public:
     inline const std::vector<std::string>& authors() const {
         return m_authors;
     }
+    inline const std::string& type() const { // New getter
+        return m_type;
+    }
+    inline const std::vector<std::string>& public_include_dirs() const { // New getter
+        return m_public_include_dirs;
+    }
     void add_author(std::string author);
     std::string executable_name();
 
@@ -26,6 +34,13 @@ public:
 
     // Package description. Field: `description`
     std::string m_description{};
+
+    // Package type ("app" or "lib"). Field: `type`. Defaults to "app".
+    std::string m_type{"app"};
+
+    // Public include directories for libraries. Field: `public_include_dirs`.
+    // Only relevant if m_type is "lib".
+    std::vector<std::string> m_public_include_dirs{};
 
 private:
     // Package authors. Field: `authors`
@@ -49,6 +64,12 @@ public:
     inline const std::string& ldflags() const {
         return m_ldflags;
     }
+    inline const std::string& public_cflags() const { // New getter
+        return m_public_cflags;
+    }
+    inline const std::string& public_ldflags() const { // New getter
+        return m_public_ldflags;
+    }
 
     // Prefer C++ compilers?
     bool m_cxx;
@@ -63,6 +84,12 @@ private:
 
     // Linker flags.
     std::string m_ldflags;
+
+    // Public compiler flags (for dependents).
+    std::string m_public_cflags{};
+
+    // Public linker flags (for dependents).
+    std::string m_public_ldflags{};
 };
 
 class Dependencies {
